@@ -488,6 +488,19 @@ describe('Claude usage snapshot rendering and retention', () => {
     expect(markup).toContain('Reason: user_disabled');
   });
 
+  test('omits extra usage that is switched off with nothing spent', () => {
+    const markup = render({
+      ...quota,
+      extraUsage: {
+        ...snapshot.extraUsage!,
+        isEnabled: false,
+        usedCredits: 0,
+        spendLimitReached: false,
+      },
+    });
+    expect(markup).not.toContain('Extra Usage');
+  });
+
   test('shows the last observation time when a retained snapshot is stale', () => {
     const markup = render({ ...quota, status: 'error', stale: true });
     expect(markup).toContain('role="status"');

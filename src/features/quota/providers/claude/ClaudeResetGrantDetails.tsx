@@ -36,9 +36,16 @@ export function ClaudeResetGrantDetails({ grants, classes }: ClaudeResetGrantDet
         return (
           <div key={grant.id} className={classes.codexResetCreditRow}>
             <span className={classes.codexResetCreditLabel}>
-              {grant.label || t('claude_reset.grant_number', { index: index + 1 })}
-              {' · '}
-              {t('claude_reset.count', { left: grant.resetsLeft, total: grant.resetsTotal })}
+              {[
+                // A lone unnamed grant needs no "Grant 1" prefix.
+                grant.label ||
+                  (remaining.length > 1
+                    ? t('claude_reset.grant_number', { index: index + 1 })
+                    : ''),
+                t('claude_reset.count', { left: grant.resetsLeft, total: grant.resetsTotal }),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
             <span className={classes.codexResetCreditTime}>
               {display ? (

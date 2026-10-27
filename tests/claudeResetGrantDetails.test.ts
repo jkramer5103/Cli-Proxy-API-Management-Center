@@ -40,7 +40,7 @@ describe('Claude reset grant details', () => {
     expect(markup).toContain('class="codexResetCredits"');
     expect(markup).toContain('class="codexResetCreditRow"');
     expect(markup).toContain(resolveTimeZoneLabel());
-    expect(markup).toContain('Launch · 2 / 3 resets remaining');
+    expect(markup).toContain('Launch · 2 of 3 left');
     expect(markup).toContain(formatInstantShort(expiry));
     expect(markup).toContain('class="quotaResetRelative"');
     expect(markup).toContain('in 11 days');
@@ -67,6 +67,12 @@ describe('Claude reset grant details', () => {
     expect(grants.map((item) => item.id)).toEqual(['unknown', 'later', 'first']);
   });
 
+  test('drops the numbered prefix for a lone unnamed grant', () => {
+    const markup = render([grant({ label: '' })]);
+    expect(markup).toContain('2 of 3 left');
+    expect(markup).not.toContain('Grant 1');
+  });
+
   test('keeps paused and expired unspent grants visible without implying usability', () => {
     const markup = render([
       grant({ paused: true, usableNow: false, endsAt: '2020-01-01T00:00:00Z' }),
@@ -78,7 +84,10 @@ describe('Claude reset grant details', () => {
   test.each(['en'])('translates fallback labels in %s', async (lng) => {
     await i18n.changeLanguage(lng);
     try {
-      const markup = render([grant({ label: '', endsAt: null })]);
+      const markup = render([
+        grant({ label: '', endsAt: null }),
+        grant({ id: 'second', label: '', endsAt: null }),
+      ]);
       expect(markup).toContain(i18n.t('claude_reset.grant_number', { index: 1 }));
       expect(markup).toContain(i18n.t('claude_reset.expiry_unknown'));
       expect(markup).not.toContain('claude_reset.');

@@ -25,7 +25,15 @@ export function ClaudeQuotaBody({
     [quota, now]
   );
   const windows = quota.windows ?? [];
-  const extraUsage = quota.extraUsage ?? null;
+  // Extra usage that is simply switched off, with nothing spent, is noise on the card.
+  const rawExtraUsage = quota.extraUsage ?? null;
+  const extraUsage =
+    rawExtraUsage &&
+    rawExtraUsage.isEnabled === false &&
+    !rawExtraUsage.spendLimitReached &&
+    !((rawExtraUsage.usedCredits ?? 0) > 0)
+      ? null
+      : rawExtraUsage;
   const planType = quota.planType ?? null;
   const language = i18n.resolvedLanguage;
   const formatMoney = (value: number | null, currency = 'USD', divisor = 1): string => {
@@ -163,7 +171,10 @@ export function ClaudeQuotaBody({
           const clampedUsed = used === null ? null : Math.max(0, Math.min(100, used));
           const remaining =
             clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
-          const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
+          const percentLabel =
+            remaining === null
+              ? '--'
+              : t('quota_management.percent_left', { percent: Math.round(remaining) });
           const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
           const resetDisplay = buildResetDisplay(
             window.resetLabel,

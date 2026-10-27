@@ -119,6 +119,8 @@ describe('CodexQuotaBody', () => {
     expect(markup).toContain('08-02 18:00');
     expect(markup).toContain('quotaResetRelative');
     expect(markup).toMatch(/3 hours/);
+    // Meters fill with what remains, so the label says so rather than a bare percent.
+    expect(markup).toContain('class="quotaPercent">62% left</span>');
   });
 
   test('renders reset-credit expiry in local time with a countdown', () => {
