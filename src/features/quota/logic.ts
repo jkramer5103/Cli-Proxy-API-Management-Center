@@ -12,6 +12,7 @@ import { KIMI_CONFIG } from './providers/kimi/data';
 import { META_CONFIG } from './providers/meta/data';
 import { XAI_CONFIG } from './providers/xai/data';
 import type { QuotaProviderType } from './providers/types';
+import type { QuotaCardState } from './providers';
 import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
 
 const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolean> = {
@@ -87,8 +88,8 @@ export function filterEntriesBySearch(entries: QuotaFileEntry[], search: string)
  * Credentials with no instant — not loaded yet, failed, or reporting no
  * upcoming reset — sink to the bottom rather than sorting as "now". They keep
  * their incoming provider-grouped order, so the unloaded tail still reads like
- * the default view instead of an arbitrary shuffle. Because loading is
- * click-to-fetch, that tail is most of the list until the user asks for data.
+ * the default view instead of an arbitrary shuffle. Only the visible page is
+ * fetched, so later pages form that tail until the user reaches them.
  *
  * The original index is the final tiebreak, making stability an asserted
  * property rather than an assumption about the engine's sort.
@@ -126,6 +127,30 @@ export function buildTabCounts(entries: QuotaFileEntry[]): Record<string, number
 /** Tabs worth showing: All, providers with credentials, and the active tab. */
 export function visibleQuotaTabs(counts: Record<string, number>, active: string): string[] {
   return ['all', ...QUOTA_TAB_ORDER.filter((type) => (counts[type] ?? 0) > 0 || type === active)];
+}
+
+/** Settled quota older than this is refetched while the page is visible. */
+export const QUOTA_STALE_MS = 5 * 60_000;
+
+/**
+ * Credentials the page should fetch on its own: never loaded, or settled
+ * longer ago than `staleMs`. In-flight and disabled credentials are skipped.
+ * A settled state without a timestamp counts as fresh, so a writer that forgets
+ * to stamp can never cause a refetch loop.
+ */
+export function pickAutoLoadTargets(
+  entries: QuotaFileEntry[],
+  quotaFor: (entry: QuotaFileEntry) => QuotaCardState | undefined,
+  now: number,
+  staleMs = QUOTA_STALE_MS
+): QuotaFileEntry[] {
+  return entries.filter((entry) => {
+    if (entry.file.disabled) return false;
+    const quota = quotaFor(entry);
+    if (!quota || quota.status === 'idle') return true;
+    if (quota.status === 'loading' || quota.fetchedAt === undefined) return false;
+    return now - quota.fetchedAt >= staleMs;
+  });
 }
 
 export const isQuotaRefreshDisabled = (

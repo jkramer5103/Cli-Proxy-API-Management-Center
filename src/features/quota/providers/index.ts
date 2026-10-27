@@ -31,7 +31,15 @@ export interface QuotaCardState {
   status: 'idle' | 'loading' | 'success' | 'error';
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
+
+/** Mark a settled state with the moment it landed; drives staleness and "updated" labels. */
+export const stampFetched = <T extends QuotaCardState>(state: T, at = Date.now()): T => ({
+  ...state,
+  fetchedAt: at,
+});
 
 export interface QuotaAdapter {
   type: QuotaProviderType;

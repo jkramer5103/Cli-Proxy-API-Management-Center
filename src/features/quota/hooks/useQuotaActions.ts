@@ -15,7 +15,13 @@ import type { AuthFileItem } from '@/types';
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
-import { getQuotaMap, getQuotaSetter, type QuotaAdapter, type QuotaCardState } from '../providers';
+import {
+  getQuotaMap,
+  getQuotaSetter,
+  stampFetched,
+  type QuotaAdapter,
+  type QuotaCardState,
+} from '../providers';
 
 const getQuotaState = (adapter: QuotaAdapter, file: AuthFileItem): QuotaCardState | undefined =>
   getQuotaMap(adapter)[getQuotaCacheKey(file)];
@@ -43,13 +49,12 @@ export function useQuotaActions(disableControls: boolean) {
       try {
         const data = await adapter.fetchQuota(file, t);
         commitIfQuotaCacheCurrent(cacheGeneration, () => {
-          const successState = adapter.buildSuccessState(data);
+          const successState = stampFetched(adapter.buildSuccessState(data));
           setQuota((prev) => ({
             ...prev,
             [cacheKey]: successState,
           }));
           void enrichQuotaInBackground(adapter, file, data, successState, t);
-          showNotification(t('auth_files.quota_refresh_success', { name: file.name }), 'success');
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t('common.unknown_error');
@@ -57,7 +62,7 @@ export function useQuotaActions(disableControls: boolean) {
         commitIfQuotaCacheCurrent(cacheGeneration, () => {
           setQuota((prev) => ({
             ...prev,
-            [cacheKey]: adapter.buildErrorState(message, status),
+            [cacheKey]: stampFetched(adapter.buildErrorState(message, status)),
           }));
           showNotification(
             t('auth_files.quota_refresh_failed', { name: file.name, message }),
@@ -92,7 +97,7 @@ export function useQuotaActions(disableControls: boolean) {
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
               setQuota((prev) => ({
                 ...prev,
-                [cacheKey]: adapter.buildSuccessState(data),
+                [cacheKey]: stampFetched(adapter.buildSuccessState(data)),
               }));
               showNotification(t('codex_quota.reset_success', { name: file.name }), 'success');
             });

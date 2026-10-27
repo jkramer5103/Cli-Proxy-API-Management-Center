@@ -8,11 +8,14 @@ import {
   filterEntriesBySearch,
   isQuotaRefreshDisabled,
   paginate,
+  pickAutoLoadTargets,
+  QUOTA_STALE_MS,
   resolveQuotaProviderType,
   sortQuotaEntries,
   visibleQuotaTabs,
   type QuotaFileEntry,
 } from '@/features/quota/logic';
+import type { QuotaCardState } from '@/features/quota/providers';
 import type { AuthFileItem } from '@/types';
 
 const file = (name: string, provider: string, extra: Partial<AuthFileItem> = {}): AuthFileItem =>
@@ -214,7 +217,7 @@ describe('sortQuotaEntries', () => {
   });
 
   test('sinks credentials with no instant, keeping their provider-grouped order', () => {
-    // Loading is click-to-fetch, so an unloaded tail is the normal case.
+    // Only the visible page is fetched, so an unloaded tail is the normal case.
     const sorted = sortQuotaEntries(
       entries,
       'soonest',
@@ -268,5 +271,38 @@ describe('visibleQuotaTabs', () => {
       'claude',
       'xai',
     ]);
+  });
+});
+
+describe('pickAutoLoadTargets', () => {
+  const NOW = 1_800_000_000_000;
+  const entry = (name: string, extra: Partial<AuthFileItem> = {}): QuotaFileEntry => ({
+    file: file(name, 'claude', extra),
+    type: 'claude',
+  });
+  const pick = (states: Record<string, QuotaCardState | undefined>, entries: QuotaFileEntry[]) =>
+    pickAutoLoadTargets(entries, (e) => states[e.file.name], NOW).map((e) => e.file.name);
+
+  test('loads never-fetched credentials and skips in-flight ones', () => {
+    const entries = [entry('new'), entry('idle'), entry('loading')];
+    expect(pick({ idle: { status: 'idle' }, loading: { status: 'loading' } }, entries)).toEqual([
+      'new',
+      'idle',
+    ]);
+  });
+
+  test('refetches settled results only once they are stale', () => {
+    const entries = [entry('fresh'), entry('stale'), entry('failed')];
+    const states: Record<string, QuotaCardState> = {
+      fresh: { status: 'success', fetchedAt: NOW - QUOTA_STALE_MS + 1 },
+      stale: { status: 'success', fetchedAt: NOW - QUOTA_STALE_MS },
+      failed: { status: 'error', fetchedAt: NOW - QUOTA_STALE_MS - 1 },
+    };
+    expect(pick(states, entries)).toEqual(['stale', 'failed']);
+  });
+
+  test('never loops on an unstamped result or touches disabled credentials', () => {
+    const entries = [entry('unstamped'), entry('off', { disabled: true })];
+    expect(pick({ unstamped: { status: 'success' } }, entries)).toEqual([]);
   });
 });

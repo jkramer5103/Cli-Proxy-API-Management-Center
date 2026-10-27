@@ -14,7 +14,7 @@ import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { QuotaFileEntry } from '../logic';
-import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
+import { QUOTA_ADAPTERS, getQuotaSetter, stampFetched, type QuotaCardState } from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
 import type { QuotaProviderType } from '../providers/types';
 
@@ -93,13 +93,14 @@ export function useQuotaBatchLoader() {
                 commitIfQuotaCacheCurrent(
                   cacheGeneration,
                   () => {
-                    nextState[result.cacheKey] =
+                    nextState[result.cacheKey] = stampFetched(
                       result.status === 'success'
                         ? adapter.buildSuccessState(result.data)
                         : adapter.buildErrorState(
                             result.error || t('common.unknown_error'),
                             result.errorStatus
-                          );
+                          )
+                    );
                     committedStates.set(result.cacheKey, nextState[result.cacheKey]);
                   },
                   result.name

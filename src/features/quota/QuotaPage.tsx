@@ -44,8 +44,8 @@ import {
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
-import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
+import { useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
@@ -270,14 +270,15 @@ export function QuotaPage() {
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
 
-  useDevinQuotaAutoLoad(
+  useQuotaAutoLoad(
     pageItems,
     disableControls ||
       loading ||
       batchLoading ||
       Boolean(error) ||
       filesGeneration !== sessionGeneration,
-    loadQuota
+    loadQuota,
+    getQuota
   );
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;

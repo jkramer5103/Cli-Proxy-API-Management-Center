@@ -219,6 +219,8 @@ export interface ClaudeQuotaState {
   planType?: string | null;
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 // Quota state types
@@ -263,6 +265,8 @@ export interface AntigravityQuotaState {
   serverTimeOffsetMs?: number | null;
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 export interface CodexQuotaWindow {
@@ -291,6 +295,8 @@ export interface CodexQuotaState {
   rateLimitResetCreditsError?: string;
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 export interface DevinQuotaWindow {
@@ -314,6 +320,8 @@ export interface DevinQuotaState extends DevinQuotaData {
   status: 'idle' | 'loading' | 'success' | 'error';
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 /** A whitelisted quota observation from Meta's Muse key endpoint. */
@@ -337,6 +345,8 @@ export interface MetaQuotaState {
   data?: MetaQuotaData;
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 // Kimi API payload types
@@ -411,6 +421,8 @@ export interface KimiQuotaState {
   rows: KimiQuotaRow[];
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
 
 // xAI/Grok API payload types
@@ -505,4 +517,6 @@ export interface XaiQuotaState {
   billing: XaiBillingSummary | null;
   error?: string;
   errorStatus?: number;
+  /** When the last fetch settled (success or error), epoch ms. */
+  fetchedAt?: number;
 }
