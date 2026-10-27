@@ -143,6 +143,21 @@ export function timelineSpan(
 }
 
 /**
+ * Start instant of every header cell in a span: one per day for weekly, one per
+ * six hours for session. Steps on the calendar, not by dividing the span, so a
+ * DST change neither repeats nor skips a day label.
+ */
+export function timelineCellStarts(span: { startMs: number; days: number }, mode: TimelineMode) {
+  const perDay = mode === 'session' ? 4 : 1;
+  return Array.from({ length: span.days * perDay }, (_, index) => {
+    const d = new Date(span.startMs);
+    d.setDate(d.getDate() + Math.floor(index / perDay));
+    d.setHours((index % perDay) * (24 / perDay), 0, 0, 0);
+    return d.getTime();
+  });
+}
+
+/**
  * Project one lane's windows onto a span, clipped and positioned.
  *
  * Windows falling entirely outside the span are dropped rather than returned

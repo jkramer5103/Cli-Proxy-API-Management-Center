@@ -24,8 +24,8 @@ import {
   laneHasWindow,
   projectLane,
   projectResetCredits,
+  timelineCellStarts,
   timelineSpan,
-  DAY_MS,
 } from '../quotaTimelineModel';
 import type { TimelineLane, TimelineMode } from '../quotaTimelineModel';
 import type { QuotaFileEntry } from '../logic';
@@ -128,12 +128,9 @@ export function QuotaTimeline({
   /** Weekly: one cell per day. Session: one per 6 hours. */
   const cells = useMemo(() => {
     const zoomed = mode === 'session';
-    const count = zoomed ? span.days * 4 : span.days;
-    const cellMs = (span.endMs - span.startMs) / count;
     const todayStart = new Date(now).setHours(0, 0, 0, 0);
 
-    return Array.from({ length: count }, (_, index) => {
-      const at = span.startMs + index * cellMs;
+    return timelineCellStarts(span, mode).map((at) => {
       const date = new Date(at);
       const isDayStart = !zoomed || date.getHours() === 0;
       return {
@@ -165,7 +162,7 @@ export function QuotaTimeline({
             {t('quota_management.windows_title', { defaultValue: 'Quota windows' })}
           </h2>
           <p className={styles.range}>
-            {formatDay(span.startMs)} – {formatDay(span.endMs - DAY_MS)}
+            {formatDay(span.startMs)} – {formatDay(span.endMs - 1)}
             {' · '}
             {mode === 'weekly'
               ? t('quota_management.windows_span_weekly', { defaultValue: 'two weeks' })

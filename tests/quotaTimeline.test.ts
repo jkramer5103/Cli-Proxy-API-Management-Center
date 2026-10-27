@@ -9,6 +9,7 @@ import {
   projectResetCredits,
   startOfDay,
   startOfWeek,
+  timelineCellStarts,
   timelineSpan,
   windowsIn,
 } from '../src/features/quota/quotaTimelineModel';
@@ -518,5 +519,40 @@ describe('buildTimelineLane', () => {
       },
     });
     expect(lane.anchorMs).toBeNull();
+  });
+});
+
+describe('timelineCellStarts', () => {
+  const withTimeZone = (tz: string, run: () => void) => {
+    // Restore the resolved zone, not the raw variable: deleting TZ leaves Bun on
+    // the last zone set, which would leak into every later test file.
+    const previous = process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    process.env.TZ = tz;
+    try {
+      run();
+    } finally {
+      process.env.TZ = previous;
+    }
+  };
+
+  test('steps one local midnight per day across a DST fall-back', () => {
+    withTimeZone('Europe/Berlin', () => {
+      // 2026-10-25 has 25 hours in Berlin; the fortnight from Sun 10/18 spans it.
+      const span = timelineSpan('weekly', 0, at(2026, 9, 20, 12));
+      const cells = timelineCellStarts(span, 'weekly');
+      const dates = cells.map((ms) => new Date(ms).getDate());
+
+      expect(dates).toEqual([18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]);
+      expect(cells.every((ms) => new Date(ms).getHours() === 0)).toBe(true);
+    });
+  });
+
+  test('session cells land on 00/06/12/18 local across a DST spring-forward', () => {
+    withTimeZone('Europe/Berlin', () => {
+      const span = timelineSpan('session', 0, at(2026, 2, 28, 9));
+      const hours = timelineCellStarts(span, 'session').map((ms) => new Date(ms).getHours());
+
+      expect(hours).toEqual([0, 6, 12, 18, 0, 6, 12, 18, 0, 6, 12, 18]);
+    });
   });
 });
