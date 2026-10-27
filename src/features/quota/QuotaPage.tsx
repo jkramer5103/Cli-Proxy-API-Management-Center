@@ -32,6 +32,7 @@ import {
 } from './constants';
 import {
   buildTabCounts,
+  visibleQuotaTabs,
   canRefreshQuotaAfterList,
   classifyQuotaFiles,
   filterEntriesByTab,
@@ -49,7 +50,6 @@ import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
-const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 6;
 
 /**
@@ -154,6 +154,7 @@ export function QuotaPage() {
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
+  const tabIds = useMemo(() => visibleQuotaTabs(tabCounts, tab), [tabCounts, tab]);
   const filteredEntries = useMemo(
     () => filterEntriesBySearch(filterEntriesByTab(entries, tab), search),
     [entries, tab, search]
@@ -321,12 +322,7 @@ export function QuotaPage() {
       <section className={styles.workbench}>
         {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
         <div className={styles.tabsRow}>
-          <ProviderTabs
-            types={TAB_IDS}
-            counts={tabCounts}
-            active={tab}
-            onChange={handleTabChange}
-          />
+          <ProviderTabs types={tabIds} counts={tabCounts} active={tab} onChange={handleTabChange} />
         </div>
 
         <div className={styles.toolbar}>

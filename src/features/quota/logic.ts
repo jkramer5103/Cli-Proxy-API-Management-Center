@@ -123,6 +123,11 @@ export function buildTabCounts(entries: QuotaFileEntry[]): Record<string, number
   return counts;
 }
 
+/** Tabs worth showing: All, providers with credentials, and the active tab. */
+export function visibleQuotaTabs(counts: Record<string, number>, active: string): string[] {
+  return ['all', ...QUOTA_TAB_ORDER.filter((type) => (counts[type] ?? 0) > 0 || type === active)];
+}
+
 export const isQuotaRefreshDisabled = (
   canRefresh: boolean,
   loading: boolean,

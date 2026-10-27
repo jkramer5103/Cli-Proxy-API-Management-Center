@@ -10,6 +10,7 @@ import {
   paginate,
   resolveQuotaProviderType,
   sortQuotaEntries,
+  visibleQuotaTabs,
   type QuotaFileEntry,
 } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
@@ -249,5 +250,23 @@ describe('sortQuotaEntries', () => {
     const last = entries[entries.length - 1].file.name;
     const sorted = sortQuotaEntries(entries, 'soonest', resolver({ [last]: 1 }));
     expect(paginate(sorted, 1, 2).pageItems[0].file.name).toBe(last);
+  });
+});
+
+describe('visibleQuotaTabs', () => {
+  test('shows All plus providers that have credentials, in tab order', () => {
+    expect(visibleQuotaTabs({ all: 3, claude: 1, codex: 2, xai: 0 }, 'all')).toEqual([
+      'all',
+      'claude',
+      'codex',
+    ]);
+  });
+
+  test('keeps the active tab reachable even when it is empty', () => {
+    expect(visibleQuotaTabs({ all: 1, claude: 1, xai: 0 }, 'xai')).toEqual([
+      'all',
+      'claude',
+      'xai',
+    ]);
   });
 });
