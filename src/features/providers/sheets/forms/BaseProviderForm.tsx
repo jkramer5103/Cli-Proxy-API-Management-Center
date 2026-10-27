@@ -598,62 +598,21 @@ export function BaseProviderForm({
           </div>
         ) : null}
 
-        {descriptor.supportsPrefix ? (
-          <div className={styles.fieldRow}>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor={`${fid}-prefix`}>
-                {t('providersPage.form.prefix')}
-              </label>
-              <input
-                id={`${fid}-prefix`}
-                className={styles.input}
-                value={form.prefix}
-                onChange={(e) => updateField('prefix', e.target.value)}
-                disabled={mutating}
-              />
-            </div>
-            {descriptor.supportsPriority ? (
-              <div className={styles.field}>
-                <label className={styles.label} htmlFor={`${fid}-prio`}>
-                  {t('providersPage.form.priority')}
-                </label>
-                <input
-                  id={`${fid}-prio`}
-                  type="number"
-                  className={styles.input}
-                  value={form.priority ?? ''}
-                  onChange={(e) =>
-                    updateField(
-                      'priority',
-                      e.target.value === '' ? undefined : Number(e.target.value)
-                    )
-                  }
-                  disabled={mutating}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {brand !== 'openaiCompatibility' ? (
+        {descriptor.supportsPriority ? (
           <div className={styles.field}>
-            <label className={styles.label} htmlFor={`${fid}-weight`}>
-              {t('providersPage.form.weight')}
+            <label className={styles.label} htmlFor={`${fid}-prio`}>
+              {t('providersPage.form.priority')}
             </label>
             <input
-              id={`${fid}-weight`}
+              id={`${fid}-prio`}
               type="number"
-              step="1"
-              max={MAX_CREDENTIAL_WEIGHT}
               className={styles.input}
-              value={form.weight ?? ''}
-              placeholder="1"
+              value={form.priority ?? ''}
               onChange={(e) =>
-                updateField('weight', e.target.value === '' ? undefined : Number(e.target.value))
+                updateField('priority', e.target.value === '' ? undefined : Number(e.target.value))
               }
               disabled={mutating}
             />
-            <span className={styles.labelHint}>{t('providersPage.form.weightHint')}</span>
           </div>
         ) : null}
 
@@ -700,21 +659,6 @@ export function BaseProviderForm({
           </div>
         ) : null}
 
-        {descriptor.supportsWebsockets ? (
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              className={styles.checkboxBox}
-              checked={form.websockets ?? false}
-              disabled={mutating}
-              onChange={(e) => updateField('websockets', e.target.checked)}
-            />
-            <span className={styles.checkboxText}>
-              <span>{t('providersPage.form.websockets')}</span>
-            </span>
-          </label>
-        ) : null}
-
         {descriptor.supportsDisabled ? (
           <label className={styles.checkboxRow}>
             <input
@@ -732,20 +676,6 @@ export function BaseProviderForm({
         ) : null}
       </div>
 
-      <ProviderBehaviorEditor
-        brand={brand}
-        value={form}
-        onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
-        disabled={mutating}
-      />
-      <RuntimePolicyEditor
-        value={form.runtimePolicy ?? readRuntimePolicy()}
-        onChange={(value) => updateField('runtimePolicy', value)}
-        disabled={mutating}
-        supportsErrors={descriptor.supportsRequestScopedErrors}
-      />
-
-      {/* 高级折叠区 */}
       {descriptor.supportsApiKeyEntries && form.apiKeyEntries ? (
         <Collapsible
           label={t('providersPage.form.apiKeyEntriesSection')}
@@ -780,68 +710,6 @@ export function BaseProviderForm({
             onTest={(idx) => void connectivity.runOpenAIKey(idx)}
             onTestAll={() => void connectivity.runOpenAIAllKeys()}
           />
-        </Collapsible>
-      ) : null}
-
-      {descriptor.supportsHeaders ? (
-        <Collapsible label={t('providersPage.form.headersSection')}>
-          <div className={styles.entriesList}>
-            {headersList.map((entry, idx) => (
-              <div
-                key={idx}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}
-              >
-                <input
-                  className={styles.input}
-                  placeholder="X-Custom-Header"
-                  value={entry.key}
-                  onChange={(e) =>
-                    updateField(
-                      'headers',
-                      headersList.map((it, i) => (i === idx ? { ...it, key: e.target.value } : it))
-                    )
-                  }
-                  disabled={mutating}
-                />
-                <input
-                  className={styles.input}
-                  placeholder="value"
-                  value={entry.value}
-                  onChange={(e) =>
-                    updateField(
-                      'headers',
-                      headersList.map((it, i) =>
-                        i === idx ? { ...it, value: e.target.value } : it
-                      )
-                    )
-                  }
-                  disabled={mutating}
-                />
-                <button
-                  type="button"
-                  className={styles.removeBtn}
-                  disabled={mutating || headersList.length <= 1}
-                  onClick={() =>
-                    updateField(
-                      'headers',
-                      headersList.filter((_, i) => i !== idx)
-                    )
-                  }
-                >
-                  <IconX size={12} />
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className={styles.addBtn}
-              disabled={mutating}
-              onClick={() => updateField('headers', [...headersList, emptyHeader()])}
-            >
-              <IconPlus size={12} />
-              <span>{t('providersPage.form.addHeader')}</span>
-            </button>
-          </div>
         </Collapsible>
       ) : null}
 
@@ -894,104 +762,243 @@ export function BaseProviderForm({
         </Collapsible>
       ) : null}
 
-      {descriptor.supportsExcludedModels ? (
-        <Collapsible label={t('providersPage.form.excludedSection')}>
-          <div className={styles.field}>
-            <ExcludedModelsPicker
-              value={excludedRules}
-              onChange={(next) => updateField('excludedModelsText', formatExcludedRulesText(next))}
-              candidates={excludedCandidates}
-              catalogState={excludedCatalogState}
-              onRetryCatalog={discovery.available ? () => void discovery.fetch() : undefined}
-              disabled={mutating}
-              // `'*'` = 该 provider 已停用，唯一所有者是下面的 Disabled 开关。
-              // 传进来后 picker 双向过滤它，用户手打 `*` 也会被拦下并解释原因。
-              reservedRules={DISABLE_ALL_RULES}
-              reservedRuleMessage={t('providersPage.form.excludedDisabledNote')}
-            />
-          </div>
-        </Collapsible>
-      ) : null}
-
-      {isClaudeLikeBrand(brand) ? (
-        <div className={styles.field}>
-          <label id={`${fid}-fingerprint-profile-label`} className={styles.label}>
-            {t('providersPage.form.fingerprintProfile')}
-          </label>
-          <Select
-            id={`${fid}-fingerprint-profile`}
-            value={form.fingerprintProfile ?? ''}
-            options={[
-              {
-                value: '',
-                label: t('providersPage.form.fingerprintProfileDefault'),
-              },
-              {
-                value: 'claude-code-cli',
-                label: t('providersPage.form.fingerprintProfileClaudeCodeCli'),
-              },
-            ]}
-            onChange={(value) => updateField('fingerprintProfile', value)}
-            disabled={mutating}
-            ariaLabelledBy={`${fid}-fingerprint-profile-label`}
-          />
-          <small className={styles.labelHint}>
-            {t('providersPage.form.fingerprintProfileHint')}
-          </small>
-        </div>
-      ) : null}
-
-      {descriptor.supportsCloak && form.cloak ? (
-        <Collapsible label={t('providersPage.form.cloakSection')}>
-          <div className={styles.section}>
+      <Collapsible
+        label={t('providersPage.form.advancedSection')}
+        hint={t('providersPage.form.advancedHint')}
+      >
+        <div className={styles.section}>
+          {descriptor.supportsPrefix ? (
             <div className={styles.field}>
-              <label className={styles.label}>{t('providersPage.form.cloakMode')}</label>
+              <label className={styles.label} htmlFor={`${fid}-prefix`}>
+                {t('providersPage.form.prefix')}
+              </label>
               <input
+                id={`${fid}-prefix`}
                 className={styles.input}
-                value={form.cloak.mode}
-                onChange={(e) => updateCloak('mode', e.target.value)}
-                placeholder="auto / always / never"
+                value={form.prefix}
+                onChange={(e) => updateField('prefix', e.target.value)}
                 disabled={mutating}
               />
             </div>
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                className={styles.checkboxBox}
-                checked={form.cloak.strictMode}
-                disabled={mutating}
-                onChange={(e) => updateCloak('strictMode', e.target.checked)}
-              />
-              <span className={styles.checkboxText}>
-                <span>{t('providersPage.form.cloakStrict')}</span>
-              </span>
-            </label>
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                className={styles.checkboxBox}
-                checked={form.cloak.cacheUserId}
-                disabled={mutating}
-                onChange={(e) => updateCloak('cacheUserId', e.target.checked)}
-              />
-              <span className={styles.checkboxText}>
-                <span>{t('providersPage.form.cloakCacheUserId')}</span>
-                <small>{t('providersPage.form.cloakCacheUserIdHint')}</small>
-              </span>
-            </label>
+          ) : null}
+
+          {brand !== 'openaiCompatibility' ? (
             <div className={styles.field}>
-              <label className={styles.label}>{t('providersPage.form.cloakSensitiveWords')}</label>
-              <textarea
-                className={styles.textarea}
-                rows={3}
-                value={form.cloak.sensitiveWordsText}
-                onChange={(e) => updateCloak('sensitiveWordsText', e.target.value)}
+              <label className={styles.label} htmlFor={`${fid}-weight`}>
+                {t('providersPage.form.weight')}
+              </label>
+              <input
+                id={`${fid}-weight`}
+                type="number"
+                step="1"
+                max={MAX_CREDENTIAL_WEIGHT}
+                className={styles.input}
+                value={form.weight ?? ''}
+                placeholder="1"
+                onChange={(e) =>
+                  updateField('weight', e.target.value === '' ? undefined : Number(e.target.value))
+                }
                 disabled={mutating}
               />
+              <span className={styles.labelHint}>{t('providersPage.form.weightHint')}</span>
             </div>
-          </div>
-        </Collapsible>
-      ) : null}
+          ) : null}
+
+          {descriptor.supportsWebsockets ? (
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                className={styles.checkboxBox}
+                checked={form.websockets ?? false}
+                disabled={mutating}
+                onChange={(e) => updateField('websockets', e.target.checked)}
+              />
+              <span className={styles.checkboxText}>
+                <span>{t('providersPage.form.websockets')}</span>
+              </span>
+            </label>
+          ) : null}
+
+          {isClaudeLikeBrand(brand) ? (
+            <div className={styles.field}>
+              <label id={`${fid}-fingerprint-profile-label`} className={styles.label}>
+                {t('providersPage.form.fingerprintProfile')}
+              </label>
+              <Select
+                id={`${fid}-fingerprint-profile`}
+                value={form.fingerprintProfile ?? ''}
+                options={[
+                  {
+                    value: '',
+                    label: t('providersPage.form.fingerprintProfileDefault'),
+                  },
+                  {
+                    value: 'claude-code-cli',
+                    label: t('providersPage.form.fingerprintProfileClaudeCodeCli'),
+                  },
+                ]}
+                onChange={(value) => updateField('fingerprintProfile', value)}
+                disabled={mutating}
+                ariaLabelledBy={`${fid}-fingerprint-profile-label`}
+              />
+              <small className={styles.labelHint}>
+                {t('providersPage.form.fingerprintProfileHint')}
+              </small>
+            </div>
+          ) : null}
+        </div>
+        <ProviderBehaviorEditor
+          brand={brand}
+          value={form}
+          onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+          disabled={mutating}
+        />
+        <RuntimePolicyEditor
+          value={form.runtimePolicy ?? readRuntimePolicy()}
+          onChange={(value) => updateField('runtimePolicy', value)}
+          disabled={mutating}
+          supportsErrors={descriptor.supportsRequestScopedErrors}
+        />
+
+        {descriptor.supportsHeaders ? (
+          <Collapsible label={t('providersPage.form.headersSection')}>
+            <div className={styles.entriesList}>
+              {headersList.map((entry, idx) => (
+                <div
+                  key={idx}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}
+                >
+                  <input
+                    className={styles.input}
+                    placeholder="X-Custom-Header"
+                    value={entry.key}
+                    onChange={(e) =>
+                      updateField(
+                        'headers',
+                        headersList.map((it, i) =>
+                          i === idx ? { ...it, key: e.target.value } : it
+                        )
+                      )
+                    }
+                    disabled={mutating}
+                  />
+                  <input
+                    className={styles.input}
+                    placeholder="value"
+                    value={entry.value}
+                    onChange={(e) =>
+                      updateField(
+                        'headers',
+                        headersList.map((it, i) =>
+                          i === idx ? { ...it, value: e.target.value } : it
+                        )
+                      )
+                    }
+                    disabled={mutating}
+                  />
+                  <button
+                    type="button"
+                    className={styles.removeBtn}
+                    disabled={mutating || headersList.length <= 1}
+                    onClick={() =>
+                      updateField(
+                        'headers',
+                        headersList.filter((_, i) => i !== idx)
+                      )
+                    }
+                  >
+                    <IconX size={12} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={styles.addBtn}
+                disabled={mutating}
+                onClick={() => updateField('headers', [...headersList, emptyHeader()])}
+              >
+                <IconPlus size={12} />
+                <span>{t('providersPage.form.addHeader')}</span>
+              </button>
+            </div>
+          </Collapsible>
+        ) : null}
+
+        {descriptor.supportsExcludedModels ? (
+          <Collapsible label={t('providersPage.form.excludedSection')}>
+            <div className={styles.field}>
+              <ExcludedModelsPicker
+                value={excludedRules}
+                onChange={(next) =>
+                  updateField('excludedModelsText', formatExcludedRulesText(next))
+                }
+                candidates={excludedCandidates}
+                catalogState={excludedCatalogState}
+                onRetryCatalog={discovery.available ? () => void discovery.fetch() : undefined}
+                disabled={mutating}
+                // `'*'` = 该 provider 已停用，唯一所有者是下面的 Disabled 开关。
+                // 传进来后 picker 双向过滤它，用户手打 `*` 也会被拦下并解释原因。
+                reservedRules={DISABLE_ALL_RULES}
+                reservedRuleMessage={t('providersPage.form.excludedDisabledNote')}
+              />
+            </div>
+          </Collapsible>
+        ) : null}
+
+        {descriptor.supportsCloak && form.cloak ? (
+          <Collapsible label={t('providersPage.form.cloakSection')}>
+            <div className={styles.section}>
+              <div className={styles.field}>
+                <label className={styles.label}>{t('providersPage.form.cloakMode')}</label>
+                <input
+                  className={styles.input}
+                  value={form.cloak.mode}
+                  onChange={(e) => updateCloak('mode', e.target.value)}
+                  placeholder="auto / always / never"
+                  disabled={mutating}
+                />
+              </div>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  className={styles.checkboxBox}
+                  checked={form.cloak.strictMode}
+                  disabled={mutating}
+                  onChange={(e) => updateCloak('strictMode', e.target.checked)}
+                />
+                <span className={styles.checkboxText}>
+                  <span>{t('providersPage.form.cloakStrict')}</span>
+                </span>
+              </label>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  className={styles.checkboxBox}
+                  checked={form.cloak.cacheUserId}
+                  disabled={mutating}
+                  onChange={(e) => updateCloak('cacheUserId', e.target.checked)}
+                />
+                <span className={styles.checkboxText}>
+                  <span>{t('providersPage.form.cloakCacheUserId')}</span>
+                  <small>{t('providersPage.form.cloakCacheUserIdHint')}</small>
+                </span>
+              </label>
+              <div className={styles.field}>
+                <label className={styles.label}>
+                  {t('providersPage.form.cloakSensitiveWords')}
+                </label>
+                <textarea
+                  className={styles.textarea}
+                  rows={3}
+                  value={form.cloak.sensitiveWordsText}
+                  onChange={(e) => updateCloak('sensitiveWordsText', e.target.value)}
+                  disabled={mutating}
+                />
+              </div>
+            </div>
+          </Collapsible>
+        ) : null}
+      </Collapsible>
 
       {error ? <div className={styles.errorBox}>{error}</div> : null}
     </form>
