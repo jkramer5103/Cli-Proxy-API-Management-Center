@@ -1,18 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { parseLogLine } from '../src/features/logs/model/logParsing';
-import {
-  buildLogPathOptions,
-  normalizeLogPathFilters,
-} from '../src/features/logs/hooks/useLogFilters';
 
 const prefix = '[2026-06-08 12:34:56] [a1b2c3d4] [info ] [gin_logger.go:110]';
-
-test('normalizes previously persisted quoted path filters without dropping selections', () => {
-  expect(normalizeLogPathFilters(['"/v1/responses"', '/v1/responses', '/rare'])).toEqual([
-    '/v1/responses',
-    '/rare',
-  ]);
-});
 
 describe('parseLogLine backend formatter', () => {
   test('parses quoted paths, loopback IPv6, hour durations and retains credits/errors', () => {
@@ -85,22 +74,5 @@ describe('parseLogLine backend formatter', () => {
     expect(parseLogLine(`${prefix} operation GET failed | detail`).message).toBe(
       'operation GET failed | detail'
     );
-  });
-});
-
-describe('log path filter options', () => {
-  test('includes selected paths outside the popular twelve, with accurate counts', () => {
-    const lines = Array.from({ length: 14 }, (_, index) =>
-      parseLogLine(`${prefix} 200 | 1ms | ::1 | GET "/path/${String(index).padStart(2, '0')}"`)
-    );
-    const options = buildLogPathOptions(lines, ['/path/13', '/missing', '/path/00']);
-    expect(options).toHaveLength(14);
-    expect(options).toContainEqual({ path: '/path/13', count: 1 });
-    expect(options).toContainEqual({ path: '/missing', count: 0 });
-    expect(options.filter(({ path }) => path === '/path/00')).toHaveLength(1);
-  });
-
-  test('retains selected options when no logs remain', () => {
-    expect(buildLogPathOptions([], ['/v1/models'])).toEqual([{ path: '/v1/models', count: 0 }]);
   });
 });

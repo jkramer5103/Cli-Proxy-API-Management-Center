@@ -364,15 +364,6 @@ export function LogsPage() {
       <div className={styles.content}>
         {activeTab === 'logs' && (
           <Card className={styles.logCard}>
-            {showFileLoggingRequired && (
-              <div className="status-badge warning">
-                {t(
-                  cpaNeedsFileLogging
-                    ? 'logs.cpa_file_logging_required'
-                    : 'logs.file_logging_required'
-                )}
-              </div>
-            )}
             {error && (
               <div className="error-box" role="alert">
                 {error}
