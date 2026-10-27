@@ -87,13 +87,15 @@
     "error_legacy_backend": "This backend accepts v0 Management API but does not provide v8. Upgrade CLIProxyAPI to v8 or later to use this management page.",
     "error_server": "Backend failed while handling the management request, check the server logs",
     "error_cors": "Cross-origin request blocked, please check server configuration",
-    "error_ssl": "SSL/TLS certificate verification failed"
+    "error_ssl": "SSL/TLS certificate verification failed",
+    "show_key": "Show key",
+    "hide_key": "Hide key"
   },
   "header": {
     "logout": "Logout"
   },
   "connection": {
-    "status": "Connection Status:"
+    "status": "Connection status"
   },
   "nav": {
     "quota": "Quota",
@@ -332,13 +334,6 @@
     "duration_less_than_minute": "<1m",
     "refresh_button": "Refresh Quota",
     "fetch_all": "Fetch All"
-  },
-  "plugin_quota": {
-    "empty_title": "No Plugin Auth Files",
-    "empty_desc": "Connect a plugin account to view its remaining quota.",
-    "idle": "Click here to refresh quota",
-    "loading": "Loading quota...",
-    "load_failed": "Failed to load quota: {{message}}"
   },
   "claude_quota": {
     "title": "Claude Quota",
@@ -893,175 +888,6 @@
     "copy_success": "Log copied to clipboard",
     "copy_failed": "Copy failed"
   },
-  "config_management": {
-    "title": "Config Panel",
-    "diff": {
-      "title": "Review Changes"
-    },
-    "visual": {
-      "serverExtras": {
-        "trustedProxies": {
-          "hint": "IP addresses or CIDRs; empty means forwarded headers are not trusted. Trusting all-address ranges risks client IP spoofing. Requires a backend restart."
-        },
-        "discoveryEnabled": {
-          "hint": "Broadcast via mDNS / DNS-SD on the LAN. Off by default; changes apply without a restart."
-        },
-        "discoveryServiceName": {
-          "hint": "The backend appends a short ID. Empty uses CPA-<ShortID>."
-        },
-        "discoveryServiceType": {
-          "hint": "Empty uses _ai-gateway._tcp."
-        },
-        "discoverySubtypes": {
-          "hint": "Empty uses the five default protocols. Missing leading _ is added; invalid entries are ignored."
-        },
-        "discoveryInterfacesInclude": {
-          "hint": "Empty auto-selects physical LAN interfaces. Use names or prefix patterns ending in *."
-        },
-        "discoveryInterfacesExclude": {
-          "hint": "Use names or prefix patterns ending in *. Exclusions take priority over inclusions."
-        },
-        "discoveryAuthRequired": {
-          "hint": "On by default. Broadcast metadata only; does not change actual API authentication."
-        },
-        "discoveryAdvertiseManagement": {
-          "hint": "Off by default. Only announces the management service exists; does not change remote access permissions."
-        }
-      },
-      "additions": {
-        "routingSessionAffinitySubagents": {
-          "hint": "Enabled by default; only effective when session affinity is enabled. Subagents inherit their parent's credential to reuse caches. Disable to distribute subagents across the credential pool for greater concurrency."
-        },
-        "saveCooldownStatus": {
-          "hint": "Save per-credential cooldown status in .cds files beside auth files. Disabled by default; otherwise status is kept only in memory."
-        },
-        "transientErrorCooldownSeconds": {
-          "hint": "Cooldown for upstream 408/500/502/503/504/520–526 errors. 0 uses the default 60 seconds; a negative value disables this cooldown."
-        },
-        "videoResultAuthCacheTTL": {
-          "hint": "How long video IDs remain bound to the credential that created them. Use a duration such as 30m or 3h; default: 3h."
-        },
-        "claudeHeaderTimezone": {
-          "hint": "IANA timezone for the cloaked currentDate, e.g. Asia/Singapore, or Local for the backend host's timezone. The credential JSON's timezone takes priority."
-        },
-        "claudeModelLevelCooling": {
-          "hint": "Apply Claude quota cooldowns only to the requested model, rather than all models sharing the credential. Disabled by default."
-        },
-        "claudeDisableCloakMode": {
-          "hint": "Disable the Claude Code CLI disguise and system prompt replacement; pass through the original system prompt. Credential files can override this with cloak_mode. Default: false (automatic cloaking for non-Claude-Code clients)."
-        },
-        "claudeCodeDisableCloakingModelList": {
-          "hint": "Return original model IDs in Anthropic model list responses instead of cloaked IDs. Disabled by default."
-        },
-        "codexDisableCloaking": {
-          "hint": "Stop forcing official Codex User-Agent and Originator headers on HTTP/SSE and WebSocket requests. Disabled by default."
-        },
-        "codexModelLevelCooling": {
-          "hint": "Apply usage_limit_reached quota cooldowns only to the requested model, rather than all models sharing the credential. Disabled by default."
-        },
-        "codexStreamBootstrapBuffering": {
-          "hint": "Hold initial empty events and heartbeats to allow credential failover on early overload or rate-limit rejections. Disabled by default. Delays response headers and may trigger client or reverse-proxy timeouts; buffering has frame and byte budgets."
-        },
-        "codexStreamBootstrapTimeout": {
-          "hint": "Optional buffering time limit, e.g. 20s. Default: 0 (unlimited time; frame and byte budgets still apply). Checked as upstream frames arrive; not a hard deadline for every network stall. Headers may still wait for translated output."
-        },
-        "codexOptimizeMultiAgentV2": {
-          "hint": "Optimize official Codex multi-agent requests: refresh spawn_agent model details, remove message parameter encryption, normalize agent_message content, and convert it to user messages for non-Codex protocols. Disabled by default."
-        },
-        "codexOrphanDelegationCompatibility": {
-          "hint": "For X-Openai-Subagent: collab_spawn requests, convert orphan codex_app/create_thread and codex_app/send_message_to_thread outputs without a valid matching call into user messages. Disabled by default."
-        },
-        "codexResponseSteering": {
-          "hint": "Experimental full-duplex Codex Responses WebSockets. Each socket stays bound to one upstream account and model; accepted input is never replayed. Disabled by default."
-        },
-        "antigravityConnectionPoolEnabled": {
-          "hint": "Reuse upstream HTTP/1.1 connections. Default: false (short-lived connections)."
-        },
-        "antigravityConnectionPoolIdleTimeout": {
-          "hint": "How long idle connections remain in the pool. Default: 30s; capped at 210s. Zero or a negative duration switches to short-lived connections."
-        },
-        "antigravityConnectionPoolMaxIdleConnsPerHost": {
-          "hint": "Maximum idle connections retained per upstream host per credential. Default: 2; capped at 100. Zero uses Go's default of 2; a negative value switches to short-lived connections."
-        },
-        "xaiInjectXSearch": {
-          "hint": "Add xAI's native x_search tool when absent from the request, including tool_choice.allowed_tools when applicable. Disabled by default."
-        },
-        "codexLiveMediaRelayEnabled": {
-          "hint": "Terminate and relay Codex Live WebRTC media in this process. Requires inbound UDP reachability. Disabled by default to preserve direct media connections."
-        },
-        "codexLiveMediaRelayMaxSessions": {
-          "hint": "Blank or 0 uses the default of 32 sessions. A custom UDP range must provide at least two ports per session."
-        },
-        "codexLiveMediaRelayDisablePrivateRemoteIPs": {
-          "hint": "Default: false, allowing private candidates for local or trusted-network clients. Enable to reject downstream SDP candidates targeting private, loopback, link-local, or unspecified IPs and reduce internal-network exposure; local connections may fail."
-        },
-        "codexLiveMediaRelayPublicIP": {
-          "hint": "Optional public IPv4 or IPv6 address to advertise when the proxy is behind 1:1 NAT. Enter an IP address, not a hostname."
-        },
-        "codexLiveMediaRelayUDPPortMin": {
-          "hint": "Set both UDP bounds to 0 for system allocation, or specify an inclusive continuous range with at least twice the effective session limit in ports."
-        },
-        "codexLiveMediaRelayUDPPortMax": {
-          "hint": "Must be at least the minimum port. Both bounds must be 0 or both nonzero; a custom range needs at least two ports per session (64 with the default 32 sessions)."
-        },
-        "codexLiveMediaRelayICEServers": {
-          "hint": "Optional STUN/TURN servers using stun:, stuns:, turn:, or turns: URLs. TURN credentials are omitted from the JSON config API. Enter the credential as a password and keep secrets out of screenshots and logs."
-        }
-      },
-      "sections": {
-        "common": {
-          "title": "Common",
-          "description": "The most-used settings, backed by the same data as the full sections"
-        },
-        "connectivity": {
-          "title": "Access & Authentication",
-          "description": "Server address, port, auth directory, and API keys"
-        },
-        "logging": {
-          "title": "Logging & Diagnostics",
-          "description": "Debug, log output, and usage statistics"
-        },
-        "advanced": {
-          "title": "Advanced & Experimental",
-          "description": "Header spoofing, signature cache, plugin sources, and other rarely changed settings"
-        },
-        "tls": {
-          "title": "TLS/SSL Configuration",
-          "description": "HTTPS secure connection settings"
-        },
-        "remote": {
-          "title": "Remote Management",
-          "description": "Remote access and control panel settings"
-        },
-        "headers": {
-          "title": "Header Defaults",
-          "description": "Default headers for Claude and Codex OAuth requests when the client omits them"
-        },
-        "network": {
-          "title": "Network Configuration",
-          "description": "Proxy, retry, and routing settings"
-        },
-        "streaming": {
-          "title": "Streaming Configuration",
-          "description": "Keepalive and bootstrap retry settings"
-        },
-        "payload": {
-          "title": "Payload Configuration",
-          "description": "Default values, raw JSON rules, override rules, and filter rules"
-        }
-      },
-      "api_keys": {
-        "empty": "No API keys",
-        "hint": "Each entry represents an API key (consistent with 'API Key Management' page style)",
-        "strength": {
-          "empty": "Not entered"
-        }
-      },
-      "payload_rules": {
-        "rule": "Rule"
-      }
-    }
-  },
   "quota_management": {
     "search_label": "Search accounts",
     "search_placeholder": "Search by filename or email",
@@ -1108,22 +934,8 @@
     "weekday_fri": "Fri",
     "weekday_sat": "Sat"
   },
-  "plugin_management": {
-    "title": "Plugin Management",
-    "description": "Review discovered and registered plugins, then manage instance toggles, config fields, and resource links.",
-    "load_failed": "Failed to load plugins"
-  },
-  "plugin_store": {
-    "title": "Plugin Store",
-    "description": "Browse the plugin registry, then install or update plugins for the current backend.",
-    "retry": "Retry",
-    "load_failed": "Failed to load the plugin store"
-  },
-  "plugin_resource": {
-    "load_failed": "Failed to load plugin page"
-  },
   "system_info": {
-    "title": "Management Center Info",
+    "title": "System",
     "about_title": "CLI Proxy API Management Center",
     "version_check_button": "Check for updates",
     "version_update_available": "An update is available: {{version}}",
@@ -1277,7 +1089,7 @@
     "table": {
       "key": "Key",
       "baseUrl": "Base URL",
-      "models": "Models/Headers",
+      "models": "Models",
       "status": "Status",
       "actions": "Actions",
       "empty": "No resources yet, click \"New\" to add.",
