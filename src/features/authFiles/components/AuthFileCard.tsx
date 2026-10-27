@@ -26,13 +26,9 @@ import {
   isRuntimeOnlyAuthFile,
   normalizeProviderKey,
   supportsAuthFileManualRefresh,
-  type AuthFileQuotaFilter,
-  type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
-import { resolveAuthFileQuotaType } from '@/features/authFiles/logic';
 import type { AuthFileStatusBarData } from '@/features/authFiles/hooks/useAuthFilesStatusBarCache';
-import { AuthFileQuotaSection } from '@/features/authFiles/components/AuthFileQuotaSection';
 import { AuthFileCooldownSection } from './AuthFileCooldownSection';
 import { getSiwcBindingStatus, supportsSiwcBinding } from '@/features/oauth/siwcBinding';
 import { SiwcStatusBadge } from '@/features/oauth/components/SiwcStatusBadge';
@@ -42,13 +38,11 @@ export type AuthFileCardProps = {
   file: AuthFileItem;
   compact: boolean;
   selected: boolean;
-  resolvedTheme: ResolvedTheme;
   disableControls: boolean;
   deleting: string | null;
   statusUpdating: Record<string, boolean>;
   manualRefreshing: Record<string, boolean>;
   cooldownResetting: Record<string, boolean>;
-  quotaFilterType: AuthFileQuotaFilter;
   statusBarCache: Map<string, AuthFileStatusBarData>;
   /** One-time entrance delay; null/undefined disables entrance motion. */
   entranceDelayMs?: number | null;
@@ -68,13 +62,11 @@ export function AuthFileCard(props: AuthFileCardProps) {
     file,
     compact,
     selected,
-    resolvedTheme,
     disableControls,
     deleting,
     statusUpdating,
     manualRefreshing,
     cooldownResetting,
-    quotaFilterType,
     statusBarCache,
     entranceDelayMs,
     onShowModels,
@@ -94,10 +86,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const showManualRefreshButton = !isRuntimeOnly && supportsAuthFileManualRefresh(providerKey);
   const isManualRefreshing = manualRefreshing[getAuthFileRefreshKey(file)] === true;
   const typeLabel = getTypeLabel(t, providerKey);
-  const typeColor = getTypeColor(providerKey, resolvedTheme);
-
-  const quotaType = resolveAuthFileQuotaType(file, quotaFilterType);
-  const showQuotaLayout = Boolean(quotaType) && !isRuntimeOnly && !compact;
+  const typeColor = getTypeColor(providerKey);
 
   const successCount = file.successCount ?? 0;
   const failureCount = file.failureCount ?? 0;
@@ -260,10 +249,6 @@ export function AuthFileCard(props: AuthFileCardProps) {
             </span>
           )}
         </div>
-      )}
-
-      {showQuotaLayout && quotaType && (
-        <AuthFileQuotaSection file={file} quotaType={quotaType} disableControls={disableControls} />
       )}
 
       <footer className={styles.actions}>

@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildInteractionsEndpoint,
   buildInteractionsProbePayload,
-  getProviderUsageKey,
   INTERACTIONS_API_REVISION,
 } from '../src/components/providers/utils';
 import { interactionsToResource } from '../src/features/providers/adapters';
@@ -103,11 +102,5 @@ describe('Interactions API key provider', () => {
       model: 'gemini-3.6-flash',
       input: 'Hi',
     });
-  });
-
-  test('maps the UI brand to the backend runtime usage provider', () => {
-    expect(getProviderUsageKey('interactions')).toBe('gemini-interactions');
-    expect(getProviderUsageKey('gemini')).toBe('gemini');
-    expect(getProviderUsageKey('claude')).toBe('claude');
   });
 });

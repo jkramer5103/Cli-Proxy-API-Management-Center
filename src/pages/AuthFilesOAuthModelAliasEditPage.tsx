@@ -8,7 +8,6 @@ import { IconInfo, IconNetwork, IconPlus } from '@/components/ui/icons';
 import { OAuthEditorProviderCard } from '@/features/authFiles/components/OAuthEditorProviderCard';
 import { OAuthAliasMappingRow } from '@/features/authFiles/components/OAuthAliasMappingRow';
 import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
-import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi } from '@/services/api';
@@ -153,8 +152,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
     }
     navigate('/auth-files', { replace: true });
   }, [location.state, navigate]);
-
-  const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -393,7 +390,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
 
   return (
     <SecondaryScreenShell
-      ref={swipeRef}
       title={title}
       onBack={handleBack}
       backLabel={t('common.back')}

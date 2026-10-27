@@ -2,15 +2,12 @@ import { useCallback, useEffect, useId, useImperativeHandle, useState, type Ref 
 import { useTranslation } from 'react-i18next';
 import { Sheet } from '@/components/ui/Sheet';
 import { IconLoader2, IconPencil } from '@/components/ui/icons';
-import type { ProviderRecentUsageMap } from '@/components/providers/utils';
 import { useNotificationStore } from '@/stores';
 import { PROVIDER_DESCRIPTORS } from '../descriptors';
-import { isMultiProtocolSponsorBrand } from '../sponsorDefinitions';
 import type { ProviderBrand, ProviderEntryFormInput, ProviderResource } from '../types';
 import type { UseProviderWorkbenchResult } from '../useProviderWorkbench';
 import { BaseProviderForm } from './forms/BaseProviderForm';
 import { ResourceDetailView } from './ResourceDetailView';
-import { SponsorProviderForm } from './forms/SponsorProviderForm';
 import styles from './forms/sharedForm.module.scss';
 
 type SheetMode = 'detail' | 'create' | 'edit';
@@ -34,7 +31,6 @@ interface ProviderSheetProps {
   onCreated: () => void;
   onUpdated: () => void;
   mutationDisabled?: boolean;
-  usageByProvider?: ProviderRecentUsageMap;
   ref?: Ref<ProviderSheetHandle>;
 }
 
@@ -46,7 +42,6 @@ export function ProviderSheet({
   onCreated,
   onUpdated,
   mutationDisabled = false,
-  usageByProvider,
   ref,
 }: ProviderSheetProps) {
   const { t } = useTranslation();
@@ -140,23 +135,9 @@ export function ProviderSheet({
       if (!state.resource) {
         return null;
       }
-      return <ResourceDetailView resource={state.resource} usageByProvider={usageByProvider} />;
+      return <ResourceDetailView resource={state.resource} />;
     }
     const formKey = `${state.brand}:${state.resource?.id ?? 'new'}:${state.mode}`;
-    if (isMultiProtocolSponsorBrand(state.brand)) {
-      return (
-        <SponsorProviderForm
-          key={formKey}
-          brand={state.brand}
-          resource={state.resource}
-          mode={state.mode}
-          mutating={formMutating}
-          formId={formId}
-          onSubmit={state.mode === 'create' ? handleCreate : handleUpdate}
-          onDirtyChange={handleDirtyChange}
-        />
-      );
-    }
     return (
       <BaseProviderForm
         key={formKey}
@@ -238,20 +219,6 @@ export function ProviderSheet({
             : t('providersPage.form.editEyebrow')
       }
       title={titleText}
-      description={t('providersPage.table.description', {
-        route:
-          state.brand === 'openaiCompatibility'
-            ? '/ai-providers/openai'
-            : state.brand === 'apikeyFun'
-              ? '/quick-start'
-              : state.brand === 'fennoAI'
-                ? '/ai-providers/fennoai'
-                : state.brand === 'qiniuCloud'
-                  ? '/ai-providers/qiniu'
-                  : state.brand === 'kimi'
-                    ? '/ai-providers/kimi'
-                    : `/ai-providers/${state.brand}`,
-      })}
       footer={footer}
       closeDisabled={submitting}
       confirmClose={confirmDiscardIfDirty}

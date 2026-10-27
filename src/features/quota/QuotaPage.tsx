@@ -5,7 +5,6 @@
  * - 现有提供商保持点击加载；Devin 首次可见时主动查询一次，不轮询；
  * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
  * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
- * - useHeaderRefresh 单槽位：本页唯一注册者，全局刷新 = 重取文件列表。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,11 +15,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { IconSearch, IconX } from '@/components/ui/icons';
 import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
-import type { AuthFileItem, ResolvedTheme } from '@/types';
+import { useAuthStore, useQuotaStore } from '@/stores';
+import type { AuthFileItem } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
@@ -65,7 +63,6 @@ const displayNameFor = (name: string) => name;
 export function QuotaPage() {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,8 +111,6 @@ export function QuotaPage() {
     }
   }, [connectionStatus, sessionGeneration, t]);
 
-  useHeaderRefresh(loadFiles);
-
   useEffect(() => {
     void loadFiles();
     return () => {
@@ -132,7 +127,6 @@ export function QuotaPage() {
   const devinQuota = useQuotaStore((state) => state.devinQuota);
   const kimiQuota = useQuotaStore((state) => state.kimiQuota);
   const metaQuota = useQuotaStore((state) => state.metaQuota);
-  const pluginQuota = useQuotaStore((state) => state.pluginQuota);
   const xaiQuota = useQuotaStore((state) => state.xaiQuota);
 
   const quotaByType = useMemo<Record<QuotaProviderType, Record<string, QuotaCardState>>>(
@@ -144,19 +138,9 @@ export function QuotaPage() {
         devin: devinQuota,
         kimi: kimiQuota,
         meta: metaQuota,
-        plugin: pluginQuota,
         xai: xaiQuota,
       }) as unknown as Record<QuotaProviderType, Record<string, QuotaCardState>>,
-    [
-      antigravityQuota,
-      claudeQuota,
-      codexQuota,
-      devinQuota,
-      kimiQuota,
-      metaQuota,
-      pluginQuota,
-      xaiQuota,
-    ]
+    [antigravityQuota, claudeQuota, codexQuota, devinQuota, kimiQuota, metaQuota, xaiQuota]
   );
 
   const getQuota = useCallback(
@@ -341,7 +325,6 @@ export function QuotaPage() {
             types={TAB_IDS}
             counts={tabCounts}
             active={tab}
-            resolvedTheme={resolvedTheme}
             onChange={handleTabChange}
           />
         </div>
@@ -431,7 +414,6 @@ export function QuotaPage() {
                 key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
                 entry={entry}
                 quota={getQuota(entry)}
-                resolvedTheme={resolvedTheme}
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                 entranceDelayMs={cardEntranceDelay(index)}
@@ -471,12 +453,7 @@ export function QuotaPage() {
         )}
 
         {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline
-          entries={pageItems}
-          quotaFor={getQuota}
-          displayNameFor={displayNameFor}
-          resolvedTheme={resolvedTheme}
-        />
+        <QuotaTimeline entries={pageItems} quotaFor={getQuota} displayNameFor={displayNameFor} />
       </section>
     </div>
   );

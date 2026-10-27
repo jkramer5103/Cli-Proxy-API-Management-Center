@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { IconFilterAll } from '@/components/ui/icons';
 import {
   getAuthFileIcon,
-  getThemeSurfaceIconBackground,
+  THEME_SURFACE_ICON_BACKGROUND,
   getTypeLabel,
   isThemeSurfaceIconProvider,
-  type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { scrollProviderTabs } from './providerTabsWheel';
 import styles from './ProviderTabs.module.scss';
@@ -15,7 +14,6 @@ export type ProviderTabsProps = {
   types: string[];
   counts: Record<string, number>;
   active: string;
-  resolvedTheme: ResolvedTheme;
   onChange: (type: string) => void;
 };
 
@@ -23,13 +21,7 @@ export type ProviderTabsProps = {
  * 提供商过滤 tabs：水平排布，支持鼠标滚轮与触屏横向滚动。
  * 品牌色只出现在图标上，激活态是文字 + 2px 墨色下划线。
  */
-export function ProviderTabs({
-  types,
-  counts,
-  active,
-  resolvedTheme,
-  onChange,
-}: ProviderTabsProps) {
+export function ProviderTabs({ types, counts, active, onChange }: ProviderTabsProps) {
   const { t } = useTranslation();
   const tabsRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +39,7 @@ export function ProviderTabs({
       {types.map((type) => {
         const isActive = active === type;
         const label = type === 'all' ? t('auth_files.filter_all') : getTypeLabel(t, type);
-        const iconSrc = type === 'all' ? null : getAuthFileIcon(type, resolvedTheme);
+        const iconSrc = type === 'all' ? null : getAuthFileIcon(type);
 
         return (
           <button
@@ -65,7 +57,7 @@ export function ProviderTabs({
                 style={
                   // 与 AI 提供商界面一致：Kimi 图标底座随主题切换颜色
                   isThemeSurfaceIconProvider(type)
-                    ? { background: getThemeSurfaceIconBackground(resolvedTheme) }
+                    ? { background: THEME_SURFACE_ICON_BACKGROUND }
                     : undefined
                 }
               >

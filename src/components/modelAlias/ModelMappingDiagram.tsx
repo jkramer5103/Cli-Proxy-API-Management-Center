@@ -12,7 +12,6 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { OAuthModelAliasEntry } from '@/types';
-import { useThemeStore } from '@/stores';
 import { AliasColumn, ProviderColumn, SourceColumn } from './ModelMappingDiagramColumns';
 import { DiagramContextMenu } from './ModelMappingDiagramContextMenu';
 import {
@@ -82,8 +81,6 @@ export const ModelMappingDiagram = forwardRef<ModelMappingDiagramRef, ModelMappi
     ref
   ) {
     const { t } = useTranslation();
-    const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-    const isDark = resolvedTheme === 'dark';
     const enableTapLinking = useMemo(() => {
       if (typeof window === 'undefined' || typeof window.matchMedia === 'undefined') return false;
       return (
@@ -565,12 +562,7 @@ export const ModelMappingDiagram = forwardRef<ModelMappingDiagramRef, ModelMappi
         >
           <svg className={styles.connections}>
             {lines.map((line) => (
-              <path
-                key={line.id}
-                d={line.path}
-                stroke={line.color}
-                strokeOpacity={isDark ? 0.4 : 0.3}
-              />
+              <path key={line.id} d={line.path} stroke={line.color} strokeOpacity={0.4} />
             ))}
           </svg>
 

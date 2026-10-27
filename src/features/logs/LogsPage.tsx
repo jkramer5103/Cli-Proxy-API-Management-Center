@@ -23,7 +23,6 @@ import {
   IconTrash2,
   IconX,
 } from '@/components/ui/icons';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { logsApi, responseDataToText, type ErrorLogFile } from '@/services/api/logs';
@@ -146,8 +145,6 @@ export function LogsPage() {
       if (requests.errors.isCurrent(request)) setLoadingErrors(false);
     }
   };
-
-  useHeaderRefresh(() => (activeTab === 'errors' ? loadErrorLogs() : loadLogs(false)));
 
   const downloadErrorLog = async (name: string) => {
     const session = requests.session.capture();

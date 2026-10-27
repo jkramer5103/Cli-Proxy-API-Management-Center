@@ -4,11 +4,9 @@ import {
   OAUTH_PROVIDER_PRESETS,
   supportsAuthFileManualRefresh,
 } from '@/features/authFiles/constants';
-import { providerLabel } from '@/features/dashboard/utils';
 import { PROVIDER_LOGOS } from '@/features/providers/brandLogos';
 import { normalizeAuthFilesResponse } from '@/services/api/authFiles';
 import type { AuthFileItem, AuthFileType } from '@/types/authFile';
-import { classifyModels } from '@/utils/models';
 import { TYPE_COLORS } from '@/utils/quota/constants';
 
 describe('Devin provider recognition', () => {
@@ -21,38 +19,13 @@ describe('Devin provider recognition', () => {
     expect(supportsAuthFileManualRefresh('devin')).toBe(false);
   });
 
-  test('provides distinct light and dark logo assets plus quota colors', () => {
-    const lightIcon = getAuthFileIcon('devin', 'light');
-    const darkIcon = getAuthFileIcon('devin', 'dark');
+  test('provides a dark-surface logo asset plus quota colors', () => {
+    const icon = getAuthFileIcon('devin');
 
-    expect(lightIcon).toBeTruthy();
-    expect(darkIcon).toBeTruthy();
-    expect(darkIcon).not.toBe(lightIcon);
-    expect(PROVIDER_LOGOS.devin.src).toBe(lightIcon);
-    expect(PROVIDER_LOGOS.devin.darkSrc).toBe(darkIcon);
+    expect(icon).toBeTruthy();
+    expect(PROVIDER_LOGOS.devin.darkSrc).toBe(icon);
     expect(TYPE_COLORS.devin.light).toBeDefined();
     expect(TYPE_COLORS.devin.dark).toBeDefined();
-    expect(providerLabel('devin', 'Unknown')).toBe('Devin');
-  });
-
-  test('prioritizes the devin namespace while preserving ordinary model categories', () => {
-    const groups = classifyModels([
-      { name: 'devin/gpt-5' },
-      { name: 'devin/claude-sonnet' },
-      { name: 'gpt-5' },
-      { name: 'claude-sonnet' },
-    ]);
-
-    expect(groups.find((group) => group.id === 'devin')?.items.map((item) => item.name)).toEqual([
-      'devin/gpt-5',
-      'devin/claude-sonnet',
-    ]);
-    expect(groups.find((group) => group.id === 'gpt')?.items.map((item) => item.name)).toEqual([
-      'gpt-5',
-    ]);
-    expect(groups.find((group) => group.id === 'claude')?.items.map((item) => item.name)).toEqual([
-      'claude-sonnet',
-    ]);
   });
 
   test('preserves minimal Devin credentials and unknown fields during normalization', () => {

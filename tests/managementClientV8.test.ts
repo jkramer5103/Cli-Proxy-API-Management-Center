@@ -25,7 +25,7 @@ describe('v8 management transport', () => {
     await apiClient.put('/config/observability/logs/debug', false, { adapter });
   });
 
-  test('retains backend version and plugin support events', async () => {
+  test('retains backend version events', async () => {
     const events: Event[] = [];
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
@@ -42,15 +42,11 @@ describe('v8 management transport', () => {
       status: 200,
       statusText: 'OK',
       config,
-      headers: { 'x-cpa-version': 'v8.0.3', 'x-cpa-support-plugin': 'true' },
+      headers: { 'x-cpa-version': 'v8.0.3' },
     });
     await apiClient.get('/config', { adapter });
-    expect(events.map((event) => event.type)).toEqual([
-      'server-version-update',
-      'server-plugin-support-update',
-    ]);
+    expect(events.map((event) => event.type)).toEqual(['server-version-update']);
     expect((events[0] as CustomEvent).detail.version).toBe('v8.0.3');
-    expect((events[1] as CustomEvent).detail.supportsPlugin).toBe(true);
   });
 });
 

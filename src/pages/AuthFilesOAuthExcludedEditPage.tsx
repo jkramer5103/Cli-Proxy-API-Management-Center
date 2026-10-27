@@ -12,7 +12,6 @@ import {
   type ExcludedModelsCatalogState,
 } from '@/components/excludedModels';
 import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
-import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi } from '@/services/api';
@@ -134,8 +133,6 @@ export function AuthFilesOAuthExcludedEditPage() {
     }
     navigate('/auth-files', { replace: true });
   }, [location.state, navigate]);
-
-  const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -333,7 +330,6 @@ export function AuthFilesOAuthExcludedEditPage() {
 
   return (
     <SecondaryScreenShell
-      ref={swipeRef}
       title={title}
       onBack={handleBack}
       backLabel={t('common.back')}

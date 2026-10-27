@@ -133,7 +133,7 @@ export function collectQuotaRowInstants(
     return [{ rowId: XAI_WEEKLY_ROW_ID, atMs: billing.resetAtMs, kind: 'window' }];
   }
 
-  if (provider === 'antigravity' || provider === 'plugin') {
+  if (provider === 'antigravity') {
     // Buckets live inside groups; the grouping is a display concern here.
     const buckets = ((quota as { groups?: { buckets?: WindowLike[] }[] }).groups ?? []).flatMap(
       (group) => group.buckets ?? []

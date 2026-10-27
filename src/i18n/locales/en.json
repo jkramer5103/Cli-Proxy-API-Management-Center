@@ -97,17 +97,12 @@
     "status": "Connection Status:"
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "quick_start": "Quick Start",
-    "ai_providers": "AI Providers",
+    "quota": "Quota",
     "auth_files": "Auth Files",
-    "oauth": "OAuth Login",
-    "quota_management": "Quota Management",
-    "plugins": "Plugins",
-    "plugin_store": "Plugin Store",
-    "config_management": "Config Panel",
-    "logs": "Logs Viewer",
-    "system_info": "Management Center Info"
+    "oauth": "Login",
+    "providers": "Providers",
+    "logs": "Logs",
+    "system": "System"
   },
   "nav_groups": {
     "operate": "Operate",
@@ -968,7 +963,8 @@
     "restart_login": "Start over",
     "success_saved_hint": "The credential is saved — manage it in Auth Files.",
     "sign_up_prompt": "No account yet?",
-    "copied": "Copied"
+    "copied": "Copied",
+    "page_description": "Sign in to a provider to add a credential."
   },
   "stats": {
     "success": "Success",
@@ -1817,7 +1813,8 @@
     "clear_login_title": "Local Login Data",
     "clear_login_desc": "Clear locally saved login data and sign out.",
     "clear_login_button": "Clear login data",
-    "clear_login_confirm": "Clear local login data and sign out now?"
+    "clear_login_confirm": "Clear local login data and sign out now?",
+    "server_address": "Server address"
   },
   "notification": {
     "trusted_proxies_restart_required": "Trusted proxy settings saved. Restart the backend to apply them.",
@@ -1858,12 +1855,8 @@
     "auto": "Follow system"
   },
   "sidebar": {
-    "toggle_expand": "Expand sidebar",
-    "toggle_collapse": "Collapse sidebar",
-    "expand": "Expand",
-    "collapse": "Collapse",
-    "subtitle": "CLI Proxy API Console",
-    "auth_files_count": "Authentication files: {{count}}"
+    "open": "Open navigation",
+    "navigation": "Main navigation"
   },
   "footer": {
     "api_version": "CLI Proxy API Version",
@@ -1956,10 +1949,7 @@
       }
     },
     "header": {
-      "title": "AI Providers",
-      "activeResources": "{{active}}/{{total}} active resources",
-      "providerFamilies": "{{count}} provider families",
-      "updatedAt": "Updated {{time}}"
+      "summary": "{{active}} of {{total}} active"
     },
     "actions": {
       "refresh": "Refresh",

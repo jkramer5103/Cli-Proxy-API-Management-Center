@@ -6,12 +6,12 @@
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
-import type { ClaudeQuotaState, ResolvedTheme } from '@/types';
+import type { ClaudeQuotaState } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
 import { getQuotaDisplayName } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
-  getThemeSurfaceIconBackground,
+  THEME_SURFACE_ICON_BACKGROUND,
   getTypeLabel,
   isThemeSurfaceIconProvider,
 } from '@/features/authFiles/constants';
@@ -30,7 +30,6 @@ const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
   quota?: QuotaCardState;
-  resolvedTheme: ResolvedTheme;
   canRefresh: boolean;
   resetting: boolean;
   /** Initial cascade delay; null disables entrance motion for later mounts. */
@@ -40,16 +39,7 @@ export type QuotaCardProps = {
 };
 
 export function QuotaCard(props: QuotaCardProps) {
-  const {
-    entry,
-    quota,
-    resolvedTheme,
-    canRefresh,
-    resetting,
-    entranceDelayMs,
-    onRefresh,
-    onReset,
-  } = props;
+  const { entry, quota, canRefresh, resetting, entranceDelayMs, onRefresh, onReset } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
@@ -73,13 +63,8 @@ export function QuotaCard(props: QuotaCardProps) {
     quota,
     onRefresh
   );
-  const providerType =
-    entry.type === 'plugin'
-      ? String(
-          file.quotaProvider ?? file['quota_provider'] ?? file.provider ?? file.type ?? 'plugin'
-        )
-      : entry.type;
-  const iconSrc = getAuthFileIcon(providerType, resolvedTheme);
+  const providerType = entry.type;
+  const iconSrc = getAuthFileIcon(providerType);
   const typeLabel = getTypeLabel(t, providerType);
   const errorMessage = resolveQuotaErrorMessage(
     t,
@@ -121,7 +106,7 @@ export function QuotaCard(props: QuotaCardProps) {
           title={typeLabel}
           style={
             isThemeSurfaceIconProvider(providerType)
-              ? { background: getThemeSurfaceIconBackground(resolvedTheme) }
+              ? { background: THEME_SURFACE_ICON_BACKGROUND }
               : undefined
           }
         >

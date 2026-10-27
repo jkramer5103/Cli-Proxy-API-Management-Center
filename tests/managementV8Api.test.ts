@@ -3,7 +3,6 @@ import { apiClient } from '@/services/api/client';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { authFilesApi } from '@/services/api/authFiles';
 import { oauthApi } from '@/services/api/oauth';
-import { pluginsApi, pluginStoreApi } from '@/services/api/plugins';
 import { configApi } from '@/services/api/config';
 import { configFileApi } from '@/services/api/configFile';
 import { logsApi } from '@/services/api/logs';
@@ -46,7 +45,6 @@ describe('v8 management API contracts', () => {
       for (const operation of [
         () => apiKeysApi.update(0, 'new'),
         () => apiKeysApi.delete(0),
-        () => pluginsApi.patchConfig('example', { custom: 'new' }),
         () => authFilesApi.saveOauthExcludedModels('codex', ['blocked']),
         () => authFilesApi.deleteOauthModelAlias('codex'),
       ]) {
@@ -215,7 +213,6 @@ describe('v8 management API contracts', () => {
       apiKeysApi.list,
       authFilesApi.getOauthExcludedModels,
       authFilesApi.getOauthModelAlias,
-      () => pluginsApi.getConfig('example'),
     ];
     for (const reader of readers) {
       get.mockRejectedValue({ status: 404, apiCode: 'not_found' });
@@ -234,16 +231,12 @@ describe('v8 management API contracts', () => {
     expect(put).toHaveBeenCalledTimes(1);
   });
 
-  test('OAuth maps UI anthropic to claude and plugins use the shared login route', async () => {
+  test('OAuth maps UI anthropic to claude', async () => {
     const get = mock('get');
     const post = mock('post');
     await oauthApi.startAuth('anthropic');
     expect(get).toHaveBeenLastCalledWith('/oauth/auth-url', {
       params: { provider: 'claude', is_webui: true },
-    });
-    await oauthApi.startAuth('example-plugin');
-    expect(get).toHaveBeenLastCalledWith('/oauth/auth-url', {
-      params: { provider: 'example-plugin' },
     });
     await oauthApi.submitCallback('anthropic', 'https://example.test/callback?code=test');
     expect(post).toHaveBeenLastCalledWith(
@@ -251,44 +244,6 @@ describe('v8 management API contracts', () => {
       { provider: 'claude', redirect_url: 'https://example.test/callback?code=test' },
       undefined
     );
-  });
-
-  test('plugin enabled is an instance config scalar, preserving sibling config', async () => {
-    const get = mock('get', { enabled: false, custom: 'value' });
-    const put = mock('put');
-    const post = mock('post');
-    expect(await pluginsApi.getConfig('example')).toEqual({ enabled: false, custom: 'value' });
-    expect(get).toHaveBeenLastCalledWith('/config/plugins/configs/example');
-    await pluginsApi.patchConfig('example', { custom: 'new' });
-    expect(put).toHaveBeenLastCalledWith('/config/plugins/configs/example', {
-      enabled: false,
-      custom: 'new',
-    });
-    await pluginsApi.updateEnabled('example', false);
-    expect(put).toHaveBeenLastCalledWith('/config/plugins/configs/example/enabled', false);
-    await pluginStoreApi.list();
-    expect(get).toHaveBeenLastCalledWith('/plugins/store');
-    await pluginStoreApi.install('example', { sourceId: 'official', version: '1.2.3' });
-    expect(post).toHaveBeenLastCalledWith(
-      '/plugins/store/example/install?source=official&version=1.2.3',
-      { version: '1.2.3' }
-    );
-  });
-
-  test('plugin form clears delete fields and object edits replace instead of deep-merging', async () => {
-    mock('get', {
-      enabled: true,
-      untouched: { future: 'preserved' },
-      cleared: 'remove-me',
-      edited: { keep: 1, obsolete: 2 },
-    });
-    const put = mock('put');
-    await pluginsApi.patchConfig('example', { cleared: null, edited: { keep: 3 } });
-    expect(put).toHaveBeenCalledWith('/config/plugins/configs/example', {
-      enabled: true,
-      untouched: { future: 'preserved' },
-      edited: { keep: 3 },
-    });
   });
 
   test('operational routes and YAML retain business payloads, config booleans are unwrapped', async () => {

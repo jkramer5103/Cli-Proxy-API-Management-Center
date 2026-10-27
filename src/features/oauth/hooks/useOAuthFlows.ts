@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useNotificationStore } from '@/stores';
-import { oauthApi, pluginsApi } from '@/services/api';
+import { oauthApi } from '@/services/api';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import { notifyAuthFilesChanged } from '@/features/authFiles/authFilesEvents';
 import { createOAuthAttempts, type OAuthAttempt } from '../oauthAttempts';
 import { validateDevinCallback } from '../devinOAuth';
 import { resolveCallbackUrl } from '../callbackUrl';
-import {
-  buildPluginOAuthProviderCards,
-  type OAuthProviderCard,
-  type PluginOAuthProviderCard,
-} from '../providers';
 
 export interface ProviderFlowState {
   url?: string;
@@ -31,7 +26,6 @@ export interface ProviderFlowState {
 }
 
 interface UseOAuthFlowsOptions {
-  providerCards: OAuthProviderCard[];
   /**
    * 该提供商的对话框是否正开着。开着时结果已在对话框内联展示，不再重复弹 toast；
    * 成功态也会保留到对话框关闭，而不是 5 秒后自动清空。
@@ -50,34 +44,11 @@ function getErrorStatus(error: unknown): number | undefined {
   return typeof error.status === 'number' ? error.status : undefined;
 }
 
-/** 已启用且声明 OAuth 能力的插件 → 追加到内置提供商之后。 */
-export function usePluginOAuthProviders(apiBase: string) {
-  const [pluginProviders, setPluginProviders] = useState<PluginOAuthProviderCard[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    pluginsApi
-      .list()
-      .then((response) => {
-        if (!cancelled)
-          setPluginProviders(buildPluginOAuthProviderCards(response.plugins, apiBase));
-      })
-      .catch(() => {
-        if (!cancelled) setPluginProviders([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase]);
-
-  return pluginProviders;
-}
-
 /**
  * 每个提供商一条独立的登录尝试（attempt）：开始 → 轮询状态 → 成功/失败，
  * 可选的手动回调提交与 Devin 会话取消。尝试失效后，已发出的请求落地也不再写状态。
  */
-export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions) {
+export function useOAuthFlows({ isFocused }: UseOAuthFlowsOptions) {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const [states, setStates] = useState<Record<string, ProviderFlowState>>({});
@@ -115,12 +86,7 @@ export function useOAuthFlows({ providerCards, isFocused }: UseOAuthFlowsOptions
     };
   }, [clearTimers]);
 
-  const providerText = (provider: string, suffix: string) => {
-    const card = providerCards.find((item) => item.id === provider);
-    return card?.kind === 'plugin'
-      ? t(`auth_login.plugin_${suffix}`, { name: card.title })
-      : t(getAuthKey(provider, suffix));
-  };
+  const providerText = (provider: string, suffix: string) => t(getAuthKey(provider, suffix));
 
   /** 对话框没开时，toast 是唯一的结果反馈。 */
   const notify = (provider: string, message: string, type: 'success' | 'error' | 'warning') => {

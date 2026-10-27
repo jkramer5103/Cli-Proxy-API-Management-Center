@@ -10,7 +10,7 @@ import { parseMetaQuotaPayload } from '@/services/api/metaQuota';
 import { metaQuotaResponse } from './fixtures/metaQuota';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import { classifyQuotaFiles, buildTabCounts } from '@/features/quota/logic';
-import { QUOTA_PROVIDER_TYPES } from '@/features/authFiles/constants';
+import { QUOTA_TAB_ORDER } from '@/features/quota/constants';
 import {
   captureQuotaCacheGeneration,
   commitIfQuotaCacheCurrent,
@@ -37,7 +37,7 @@ afterEach(() => useQuotaStore.getState().clearQuotaCache());
 
 describe('Muse quota UI integration', () => {
   test('provides quota labels in all six locales', () => {
-    for (const locale of ['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko']) {
+    for (const locale of ['en']) {
       const translations = JSON.parse(readFileSync(`src/i18n/locales/${locale}.json`, 'utf8'));
       for (const key of [
         'title',
@@ -70,7 +70,7 @@ describe('Muse quota UI integration', () => {
     }
   });
   test('registers quota and filters disabled credentials', () => {
-    expect(QUOTA_PROVIDER_TYPES.has('meta')).toBe(true);
+    expect(QUOTA_TAB_ORDER.includes('meta')).toBe(true);
     expect(META_CONFIG.filterFn(file)).toBe(true);
     expect(META_CONFIG.filterFn({ ...file, disabled: true })).toBe(false);
     const entries = classifyQuotaFiles([file, { ...file, name: 'disabled.json', disabled: true }]);

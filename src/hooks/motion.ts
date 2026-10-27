@@ -3,7 +3,6 @@ import { animate } from 'motion/mini';
 
 /**
  * Premium 动效档位：入场 0.45s、减速曲线、无回弹。
- * 与 PageTransition 保持同一套自定义 easing 写法。
  */
 const REVEAL_DISTANCE = 24;
 const REVEAL_DURATION = 0.45;

@@ -13,12 +13,12 @@ import iconKimiDark from '@/assets/icons/kimi-dark.svg';
 import iconKimiLight from '@/assets/icons/kimi-light.svg';
 import iconQwen from '@/assets/icons/qwen.svg';
 import iconVertex from '@/assets/icons/vertex.svg';
-import type { AuthFileItem, ResolvedTheme, ThemeColors } from '@/types';
+import type { AuthFileItem, ThemeColors } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import { parseTimestamp } from '@/utils/timestamp';
 import { TYPE_COLORS } from '@/utils/quota';
 
-export type { ResolvedTheme, ThemeColors, TypeColorSet } from '@/types';
+export type { ThemeColors, TypeColorSet } from '@/types';
 export type AuthFileModelItem = {
   id: string;
   display_name?: string;
@@ -27,28 +27,7 @@ export type AuthFileModelItem = {
 };
 export type AuthFileIconAsset = string | { light: string; dark: string };
 
-export type QuotaProviderType =
-  | 'antigravity'
-  | 'claude'
-  | 'codex'
-  | 'devin'
-  | 'kimi'
-  | 'meta'
-  | 'plugin'
-  | 'xai';
-export type AuthFileQuotaFilter = string | null;
 export type OAuthConfigLoadError = 'loading' | 'unsupported' | 'load' | null;
-
-export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
-  'meta',
-  'antigravity',
-  'claude',
-  'codex',
-  'devin',
-  'kimi',
-  'plugin',
-  'xai',
-]);
 
 export const OAUTH_PROVIDER_PRESETS = [
   'meta',
@@ -165,30 +144,24 @@ export const getTypeLabel = (t: TFunction, type: string): string => {
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
-export const getTypeColor = (type: string, resolvedTheme: ResolvedTheme): ThemeColors => {
+export const getTypeColor = (type: string): ThemeColors => {
   const set = TYPE_COLORS[normalizeProviderKey(type)] || TYPE_COLORS.unknown;
-  return resolvedTheme === 'dark' && set.dark ? set.dark : set.light;
+  return set.dark ?? set.light;
 };
 
-export const getAuthFileIcon = (type: string, resolvedTheme: ResolvedTheme): string | null => {
+export const getAuthFileIcon = (type: string): string | null => {
   const iconEntry = AUTH_FILE_ICONS[normalizeProviderKey(type)];
   if (!iconEntry) return null;
-  return typeof iconEntry === 'string'
-    ? iconEntry
-    : resolvedTheme === 'dark'
-      ? iconEntry.dark
-      : iconEntry.light;
+  return typeof iconEntry === 'string' ? iconEntry : iconEntry.dark;
 };
 
-// 与 AI 提供商界面（PROVIDER_LOGOS 的 themeSurface）保持一致：
-// 这些提供商的图标底座颜色随主题切换（浅色主题黑底，深色主题白底）
+// Dark-on-dark logos (Kimi) get a white tile so they stay visible.
 export const THEME_SURFACE_ICON_PROVIDERS = new Set(['kimi']);
 
 export const isThemeSurfaceIconProvider = (type: string): boolean =>
   THEME_SURFACE_ICON_PROVIDERS.has(normalizeProviderKey(type));
 
-export const getThemeSurfaceIconBackground = (resolvedTheme: ResolvedTheme): string =>
-  resolvedTheme === 'dark' ? '#ffffff' : '#000000';
+export const THEME_SURFACE_ICON_BACKGROUND = '#ffffff';
 
 export const parsePriorityValue = (value: unknown): number | undefined => {
   if (typeof value === 'number') {

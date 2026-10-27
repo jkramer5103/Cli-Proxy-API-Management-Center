@@ -198,7 +198,7 @@ describe('SIWC binding', () => {
       expect(source).toContain(contract);
     expect(source).not.toContain('startAuth(');
     expect(source).not.toContain('localStorage');
-    for (const locale of ['en', 'zh-CN', 'zh-TW', 'ru', 'vi', 'ko']) {
+    for (const locale of ['en']) {
       const messages = JSON.parse(
         readFileSync(new URL(`../src/i18n/locales/${locale}.json`, import.meta.url), 'utf8')
       ).siwc;

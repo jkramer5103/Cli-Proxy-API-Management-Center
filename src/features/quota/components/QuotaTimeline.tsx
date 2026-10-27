@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
 import { getQuotaCacheKey, getQuotaDisplayName } from '@/utils/quota/identity';
 import { useNow } from '@/hooks/useNow';
-import type { ResolvedTheme, ThemeColors } from '@/types';
+import type { ThemeColors } from '@/types';
 import {
   buildTimelineLane,
   laneHasWindow,
@@ -53,7 +53,6 @@ export interface QuotaTimelineProps {
    */
   quotaFor: (entry: QuotaFileEntry) => QuotaCardState | undefined;
   displayNameFor: (name: string) => string;
-  resolvedTheme: ResolvedTheme;
   /** Injectable for tests/screenshots; defaults to the real clock. */
   now?: number;
   /** Injectable initial zoom for tests/screenshots; defaults to the weekly view. */
@@ -66,7 +65,6 @@ export function QuotaTimeline({
   entries,
   quotaFor,
   displayNameFor,
-  resolvedTheme,
   now: nowProp,
   initialMode = 'weekly',
   initialOffset = 0,
@@ -264,7 +262,6 @@ export function QuotaTimeline({
                 mode={mode}
                 cells={cells}
                 nowPercent={nowPercent}
-                resolvedTheme={resolvedTheme}
               />
             ))}
           </>
@@ -315,10 +312,9 @@ interface LaneProps {
   mode: TimelineMode;
   cells: { at: number; isWeekend: boolean; isDayStart: boolean }[];
   nowPercent: number | null;
-  resolvedTheme: ResolvedTheme;
 }
 
-function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneProps) {
+function Lane({ lane, span, now, mode, cells, nowPercent }: LaneProps) {
   const { t, i18n } = useTranslation();
 
   const windows = useMemo(
@@ -331,8 +327,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
   );
 
   const colorSet = TYPE_COLORS[lane.provider] || TYPE_COLORS.unknown;
-  const color: ThemeColors =
-    resolvedTheme === 'dark' && colorSet.dark ? colorSet.dark : colorSet.light;
+  const color: ThemeColors = colorSet.dark ?? colorSet.light;
 
   // Sub-day windows are labelled in hours — rounding 5h to days gives "0d".
   const periodLabel =
@@ -357,8 +352,7 @@ function Lane({ lane, span, now, mode, cells, nowPercent, resolvedTheme }: LaneP
         <div className={styles.laneLimits}>
           {lane.limits.map((limit) => (
             <span key={limit.label} className={styles.laneLimit}>
-              {lane.provider === 'meta' ? t(limit.label) : limit.label}{' '}
-              <b>{limit.remaining}%</b>
+              {lane.provider === 'meta' ? t(limit.label) : limit.label} <b>{limit.remaining}%</b>
             </span>
           ))}
         </div>

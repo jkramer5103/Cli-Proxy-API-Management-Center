@@ -2,24 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useInterval } from '@/hooks/useInterval';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useRevealOnScroll } from '@/hooks/motion';
-import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
-  QUOTA_PROVIDER_TYPES,
   clampCardPageSize,
   getTypeLabel,
   isProblemAuthFile,
   isRuntimeOnlyAuthFile,
   normalizeProviderKey,
-  type AuthFileQuotaFilter,
-  type QuotaProviderType,
-  type ResolvedTheme,
 } from '@/features/authFiles/constants';
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
 import { AuthFileDetailsSheet } from '@/features/authFiles/components/AuthFileDetailsSheet';
@@ -54,7 +48,7 @@ import {
   type AuthFilesStatusFilterMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
-import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import { useAuthStore, useNotificationStore } from '@/stores';
 import styles from './AuthFilesPage.module.scss';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
@@ -81,9 +75,6 @@ export function AuthFilesPage() {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const pageTransitionLayer = usePageTransitionLayer();
-  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
   const navigate = useNavigate();
 
   const [filter, setFilter] = useState<'all' | string>('all');
@@ -189,13 +180,6 @@ export function AuthFilesPage() {
 
   const disableControls = connectionStatus !== 'connected' || refreshingAllCredentials;
   const normalizedFilter = normalizeProviderKey(String(filter));
-  const quotaFilterType: QuotaProviderType | null = QUOTA_PROVIDER_TYPES.has(
-    normalizedFilter as QuotaProviderType
-  )
-    ? (normalizedFilter as QuotaProviderType)
-    : null;
-  const activeQuotaFilter: AuthFileQuotaFilter =
-    normalizedFilter === 'all' ? 'all' : (quotaFilterType ?? normalizedFilter) || null;
   const pageSize = compactMode ? pageSizeByMode.compact : pageSizeByMode.regular;
   const problemOnly = statusFilterMode === 'problem';
   const disabledOnly = statusFilterMode === 'disabled';
@@ -369,22 +353,16 @@ export function AuthFilesPage() {
     await Promise.all([loadFiles({ background: true }), loadExcluded(), loadModelAlias()]);
   }, [loadFiles, loadExcluded, loadModelAlias]);
 
-  useHeaderRefresh(handleHeaderRefresh);
-
   useEffect(() => {
-    if (!isCurrentLayer) return;
     void loadFiles(initialLoadDoneRef.current ? { background: true } : undefined);
     initialLoadDoneRef.current = true;
     loadExcluded();
     loadModelAlias();
-  }, [isCurrentLayer, loadFiles, loadExcluded, loadModelAlias]);
+  }, [loadFiles, loadExcluded, loadModelAlias]);
 
-  useInterval(
-    () => {
-      void loadFiles({ background: true }).catch(() => {});
-    },
-    isCurrentLayer ? 240_000 : null
-  );
+  useInterval(() => {
+    void loadFiles({ background: true }).catch(() => {});
+  }, 240_000);
 
   /* ---------- 过滤 / 排序 / 分页 memos ---------- */
 
@@ -491,7 +469,7 @@ export function AuthFilesPage() {
    * 而过滤/翻页/轮询新挂载的卡片拿到 null——不重播。 */
 
   const [cardsAnimated, setCardsAnimated] = useState(false);
-  const enableCardEntrance = !cardsAnimated && isCurrentLayer && !loading && pageItems.length > 0;
+  const enableCardEntrance = !cardsAnimated && !loading && pageItems.length > 0;
   useEffect(() => {
     if (enableCardEntrance) {
       setCardsAnimated(true);
@@ -576,11 +554,7 @@ export function AuthFilesPage() {
   const isFirstRunEmpty = !loading && files.length === 0 && !error;
   const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
 
-  const gridClasses = [
-    styles.grid,
-    compactMode ? styles.gridCompact : '',
-    activeQuotaFilter ? styles.gridQuota : '',
-  ]
+  const gridClasses = [styles.grid, compactMode ? styles.gridCompact : '']
     .filter(Boolean)
     .join(' ');
 
@@ -617,7 +591,6 @@ export function AuthFilesPage() {
           types={existingTypes}
           counts={typeCounts}
           active={normalizedFilter}
-          resolvedTheme={resolvedTheme}
           onChange={(type) => {
             setFilter(type);
             setPage(1);
@@ -707,13 +680,11 @@ export function AuthFilesPage() {
                 file={file}
                 compact={compactMode}
                 selected={selectedFiles.has(file.name)}
-                resolvedTheme={resolvedTheme}
                 disableControls={disableControls}
                 deleting={deleting}
                 statusUpdating={statusUpdating}
                 manualRefreshing={manualRefreshing}
                 cooldownResetting={cooldownResetting}
-                quotaFilterType={activeQuotaFilter}
                 statusBarCache={statusBarCache}
                 entranceDelayMs={cardEntranceDelay(index)}
                 onShowModels={showModels}

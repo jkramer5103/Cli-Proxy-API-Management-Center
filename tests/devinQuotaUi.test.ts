@@ -8,7 +8,7 @@ import { DEVIN_CONFIG } from '@/features/quota/providers/devin/data';
 import { DevinQuotaBody } from '@/features/quota/providers/devin/DevinQuotaBody';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import { classifyQuotaFiles, buildTabCounts } from '@/features/quota/logic';
-import { QUOTA_PROVIDER_TYPES } from '@/features/authFiles/constants';
+import { QUOTA_TAB_ORDER } from '@/features/quota/constants';
 import { buildTimelineLane, projectLane } from '@/features/quota/quotaTimelineModel';
 import { collectQuotaRowInstants, nextRecoveryMs } from '@/features/quota/resetSchedule';
 import {
@@ -48,7 +48,7 @@ afterEach(() => useQuotaStore.getState().clearQuotaCache());
 
 describe('Devin quota UI integration', () => {
   test('registers the provider, filters disabled credentials, and counts its tab', () => {
-    expect(QUOTA_PROVIDER_TYPES.has('devin')).toBe(true);
+    expect(QUOTA_TAB_ORDER.includes('devin')).toBe(true);
     expect(DEVIN_CONFIG.filterFn(file)).toBe(true);
     expect(DEVIN_CONFIG.filterFn({ ...file, disabled: true })).toBe(false);
     expect(DEVIN_CONFIG.filterFn({ ...file, disabled: 'true' } as unknown as AuthFileItem)).toBe(

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput';
 import { Card } from '@/components/ui/Card';
 import { IconCheck, IconNetwork } from '@/components/ui/icons';
-import { useThemeStore } from '@/stores';
 import { getAuthFileIcon, getTypeLabel, normalizeProviderKey } from '../constants';
 import styles from './OAuthEditor.module.scss';
 
@@ -24,7 +23,6 @@ export function OAuthEditorProviderCard({
 }: OAuthEditorProviderCardProps) {
   const { t } = useTranslation();
   const id = useId();
-  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
   return (
     <Card className={styles.settingsCard}>
@@ -59,7 +57,7 @@ export function OAuthEditorProviderCard({
           >
             {options.map((option) => {
               const active = normalizeProviderKey(provider) === normalizeProviderKey(option);
-              const icon = getAuthFileIcon(option, resolvedTheme);
+              const icon = getAuthFileIcon(option);
               return (
                 <button
                   key={option}

@@ -1,30 +1,16 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useRevealGroup } from '@/hooks/motion';
-import { useAuthStore, useThemeStore } from '@/stores';
+import { PageHeader } from '@/components/ui/PageHeader';
 import iconVertex from '@/assets/icons/vertex.svg';
 import iconCodex from '@/assets/icons/codex.svg';
-import { KIMI_DISPLAY_NAME } from '@/features/providers/kimi';
-import { OAuthHeader } from './components/OAuthHeader';
 import { ProviderTile } from './components/ProviderTile';
-import { SponsorCard, type SponsorCardSite } from './components/SponsorCard';
 import { OAuthFlowDialog, type DialogHeading } from './components/OAuthFlowDialog';
 import { VertexImportDialog } from './components/VertexImportDialog';
 import { SiwcBindDialog } from './components/SiwcBindDialog';
-import {
-  useOAuthFlows,
-  usePluginOAuthProviders,
-  type ProviderFlowState,
-} from './hooks/useOAuthFlows';
+import { useOAuthFlows, type ProviderFlowState } from './hooks/useOAuthFlows';
 import { useVertexImport } from './hooks/useVertexImport';
-import {
-  isSponsor,
-  OAUTH_PROVIDERS,
-  resolveThemedIcon,
-  supportsManualCallback,
-  type OAuthProviderCard,
-} from './providers';
+import { OAUTH_PROVIDERS, supportsManualCallback, type OAuthProviderCard } from './providers';
 import styles from './OAuthPage.module.scss';
 
 /** 对话框焦点标识：Vertex 不是 OAuth 提供商，用保留 id 避免与提供商冲突。 */
@@ -34,24 +20,13 @@ const VERTEX_LABEL = 'Vertex AI';
 type DialogTarget = { kind: 'oauth'; id: string } | { kind: 'vertex' };
 
 /**
- * OAuth 登录：提供商画廊（一屏看全）+ 聚焦的授权对话框。
- *
- * 点磁贴即开始登录；对话框可随时关闭，授权在后台继续，磁贴副行实时反映进度。
- * 对话框关闭后保留最后一个目标，让退出动画期间内容不消失。
+ * OAuth login: a tile per provider plus a focused authorization dialog. Closing the dialog
+ * keeps the attempt running in the background; the tile caption shows live progress.
  */
 export function OAuthPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const revealRef = useRevealGroup<HTMLDivElement>();
   const otherMethodsId = useId();
-
-  const pluginProviders = usePluginOAuthProviders(apiBase);
-  const providerCards = useMemo<OAuthProviderCard[]>(
-    () => [...OAUTH_PROVIDERS, ...pluginProviders],
-    [pluginProviders]
-  );
 
   const focusedRef = useRef<string | null>(null);
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
@@ -65,7 +40,6 @@ export function OAuthPage() {
   };
 
   const flows = useOAuthFlows({
-    providerCards,
     isFocused: (provider) => focusedRef.current === provider,
   });
   const vertexImport = useVertexImport({
@@ -74,36 +48,20 @@ export function OAuthPage() {
   });
 
   const labelOf = (card: OAuthProviderCard) =>
-    card.kind === 'plugin'
-      ? card.title
-      : typeof card.label === 'string'
-        ? card.label
-        : t(card.label.key);
+    typeof card.label === 'string' ? card.label : t(card.label.key);
 
   const captionOf = (card: OAuthProviderCard) => {
-    if (card.kind === 'plugin') return t('auth_login.method_plugin');
     const method = t(
       card.flow === 'device' ? 'auth_login.method_device' : 'auth_login.method_browser'
     );
     return card.domain ? `${card.domain} · ${method}` : method;
   };
 
-  const iconOf = (card: OAuthProviderCard) =>
-    card.kind === 'plugin' ? card.icon : resolveThemedIcon(card.icon, resolvedTheme);
-
   const headingOf = (card: OAuthProviderCard): DialogHeading => ({
-    title:
-      card.kind === 'plugin'
-        ? t('auth_login.plugin_oauth_title', { name: card.title })
-        : t(card.titleKey),
+    title: t(card.titleKey),
     caption: captionOf(card),
-    icon: iconOf(card),
+    icon: card.icon,
   });
-
-  const sponsorOf = (card: OAuthProviderCard) =>
-    isSponsor(card)
-      ? { url: card.sponsor.signUpUrl, label: t('auth_login.kimi_sign_up_button') }
-      : undefined;
 
   const tileStatusLabel = (status: ProviderFlowState['status']) =>
     status === 'waiting'
@@ -138,26 +96,7 @@ export function OAuthPage() {
   const viewAuthFiles = () => navigate('/auth-files');
 
   const dialogCard =
-    dialog?.kind === 'oauth' ? providerCards.find((card) => card.id === dialog.id) : undefined;
-  const providerCount = providerCards.length;
-  const sponsorCards = providerCards.filter(isSponsor);
-  const regularCards = providerCards.filter((card) => !isSponsor(card));
-  // 赞助商卡占级联的第 0 位，其余磁贴顺延
-  const tileIndexOffset = sponsorCards.length > 0 ? 1 : 0;
-
-  const sponsorSites: SponsorCardSite[] = sponsorCards.map((card) => {
-    const status = flows.states[card.id]?.status;
-    return {
-      id: card.id,
-      name: labelOf(card),
-      region: t(card.sponsor.siteKey),
-      domain: card.domain ?? '',
-      status,
-      statusLabel: tileStatusLabel(status),
-      signUpUrl: card.sponsor.signUpUrl,
-    };
-  });
-
+    dialog?.kind === 'oauth' ? OAUTH_PROVIDERS.find((card) => card.id === dialog.id) : undefined;
   const renderTile = (card: OAuthProviderCard, index: number) => {
     const status = flows.states[card.id]?.status;
     return (
@@ -165,8 +104,8 @@ export function OAuthPage() {
         key={card.id}
         label={labelOf(card)}
         caption={captionOf(card)}
-        icon={iconOf(card)}
-        index={index + tileIndexOffset}
+        icon={card.icon}
+        index={index}
         status={status}
         statusLabel={tileStatusLabel(status)}
         onOpen={() => openProvider(card)}
@@ -178,31 +117,28 @@ export function OAuthPage() {
   ).length;
 
   return (
-    <div className={styles.page} ref={revealRef}>
-      <OAuthHeader
-        providerCount={providerCount}
-        waitingCount={waitingCount}
-        addedCount={flows.addedCount}
+    <div className={styles.page}>
+      <PageHeader
+        title={t('nav.oauth')}
+        description={t('auth_login.page_description')}
+        meta={
+          (waitingCount > 0 || flows.addedCount > 0) && (
+            <>
+              {waitingCount > 0 && (
+                <span>{t('auth_login.meta_waiting', { count: waitingCount })}</span>
+              )}
+              {flows.addedCount > 0 && (
+                <span>{t('auth_login.meta_added', { count: flows.addedCount })}</span>
+              )}
+            </>
+          )
+        }
       />
 
-      {/* 赞助商独占首行：一张品牌卡收拢两站入口，其余提供商在下方紧凑网格 */}
-      {sponsorCards.length > 0 && (
-        <SponsorCard
-          title={KIMI_DISPLAY_NAME}
-          caption={t('auth_login.sponsor_kimi_caption')}
-          icon={iconOf(sponsorCards[0])}
-          signUpLabel={t('auth_login.sponsor_sign_up')}
-          sites={sponsorSites}
-          onOpen={(siteId) => {
-            const card = sponsorCards.find((sponsor) => sponsor.id === siteId);
-            if (card) openProvider(card);
-          }}
-        />
-      )}
-      <div className={styles.grid}>{regularCards.map(renderTile)}</div>
+      <div className={styles.grid}>{OAUTH_PROVIDERS.map(renderTile)}</div>
 
       <section className={styles.section} aria-labelledby={otherMethodsId}>
-        <h2 className={styles.sectionLabel} id={otherMethodsId} data-reveal>
+        <h2 className={styles.sectionLabel} id={otherMethodsId}>
           {t('auth_login.other_login_methods')}
         </h2>
         <div className={styles.grid}>
@@ -210,14 +146,14 @@ export function OAuthPage() {
             label={VERTEX_LABEL}
             caption={t('vertex_import.file_label')}
             icon={iconVertex}
-            index={regularCards.length + tileIndexOffset}
+            index={OAUTH_PROVIDERS.length}
             onOpen={openVertex}
           />
           <ProviderTile
             label={t('siwc.bind')}
             caption={t('siwc.tile_caption')}
             icon={iconCodex}
-            index={regularCards.length + tileIndexOffset + 1}
+            index={OAUTH_PROVIDERS.length + 1}
             onOpen={openSiwc}
           />
         </div>
@@ -231,7 +167,6 @@ export function OAuthPage() {
           state={flows.states[dialogCard.id] ?? {}}
           text={(suffix) => flows.providerText(dialogCard.id, suffix)}
           supportsCallback={supportsManualCallback(dialogCard)}
-          sponsor={sponsorOf(dialogCard)}
           onStart={() => void flows.startAuth(dialogCard.id)}
           onCancel={() => void flows.cancelAuth(dialogCard.id)}
           onCallbackChange={(value) => flows.setCallbackInput(dialogCard.id, value)}

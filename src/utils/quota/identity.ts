@@ -1,6 +1,6 @@
 import type { AuthFileItem } from '@/types';
 import { normalizeRecentRequestAuthIndex } from '@/utils/recentRequests';
-import { isDevinFile, isPluginQuotaFile } from './validators';
+import { isDevinFile } from './validators';
 
 const QUOTA_IDENTITY_SEPARATOR = '\0';
 
@@ -9,14 +9,14 @@ const QUOTA_IDENTITY_SEPARATOR = '\0';
  * from one physical file, distinguished by auth_index.
  */
 export function getQuotaCacheKey(file: AuthFileItem): string {
-  if (!isDevinFile(file) && !isPluginQuotaFile(file)) return file.name;
+  if (!isDevinFile(file)) return file.name;
   const authIndex = normalizeRecentRequestAuthIndex(file.authIndex);
   return `${file.name}${QUOTA_IDENTITY_SEPARATOR}${authIndex ?? ''}`;
 }
 
 /** Disambiguate same-name cards without ever falling back to account (a secret). */
 export function getQuotaDisplayName(file: AuthFileItem): string {
-  if (!isDevinFile(file) && !isPluginQuotaFile(file)) return file.name;
+  if (!isDevinFile(file)) return file.name;
   const identity = file.email?.trim() || normalizeRecentRequestAuthIndex(file.authIndex);
   return identity ? `${file.name} · ${identity}` : file.name;
 }
