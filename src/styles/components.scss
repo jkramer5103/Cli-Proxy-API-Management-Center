@@ -71,6 +71,14 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+
+  // Button wraps children in a span; lay out icon + label inside it.
+  > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
 }
 
 [data-theme='dark'] {
