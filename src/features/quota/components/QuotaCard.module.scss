@@ -30,18 +30,6 @@
 }
 
 /* 首次数据到达时的一次性级联入场；切 tab / 翻页 / 刷新不重播 */
-.cardEnter {
-  animation: quota-card-in 0.45s var(--ease-out-strong, ease-out) both;
-  animation-delay: var(--card-delay, 0s);
-}
-
-@keyframes quota-card-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 16px, 0);
-  }
-}
-
 /* ---------- 头部：品牌图标 + 文件名 ---------- */
 
 .head {
@@ -301,7 +289,6 @@
     transform: none;
   }
 
-  .cardEnter,
   .skeletonLabel,
   .skeletonTrack,
   .spinning {

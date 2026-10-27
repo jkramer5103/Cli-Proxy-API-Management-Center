@@ -3,7 +3,6 @@
  * Claude observations remain visible while refreshing or after a failed read.
  */
 
-import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import type { ClaudeQuotaState } from '@/types';
@@ -33,26 +32,18 @@ export type QuotaCardProps = {
   canRefresh: boolean;
   resetting: boolean;
   /** Initial cascade delay; null disables entrance motion for later mounts. */
-  entranceDelayMs?: number | null;
   onRefresh: () => void;
   onReset: () => void;
 };
 
 export function QuotaCard(props: QuotaCardProps) {
-  const { entry, quota, canRefresh, resetting, entranceDelayMs, onRefresh, onReset } = props;
+  const { entry, quota, canRefresh, resetting, onRefresh, onReset } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
   const displayName = getQuotaDisplayName(file);
-
-  // Capture the entrance delay only at mount, without a render-time ref read.
-  const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
-  const entranceStyle =
-    mountEntranceDelayMs === null
-      ? undefined
-      : ({ '--card-delay': `${mountEntranceDelayMs}ms` } as CSSProperties);
 
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
@@ -96,10 +87,7 @@ export function QuotaCard(props: QuotaCardProps) {
     Boolean(adapter.canResetQuota?.(quota));
 
   return (
-    <article
-      className={`${styles.card} ${mountEntranceDelayMs === null ? '' : styles.cardEnter}`}
-      style={entranceStyle}
-    >
+    <article className={styles.card}>
       <header className={styles.head}>
         <span
           className={styles.iconWrap}
