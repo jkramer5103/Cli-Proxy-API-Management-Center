@@ -22,7 +22,7 @@ interface ProviderResourceTableProps {
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
 }
 
-const columnWidths = ['220px', 'auto', '96px', '120px', '120px'];
+const columnWidths = ['200px', 'auto', '80px', '136px', '116px'];
 
 export function ProviderResourceTable({
   resources,
