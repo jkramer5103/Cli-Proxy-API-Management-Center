@@ -50,9 +50,6 @@ interface UseLogScrollerOptions {
   loading: boolean;
   isSearching: boolean;
   filteredLineCount: number;
-  hasStructuredFilters: boolean;
-  showRawLogs: boolean;
-  wrapLogs?: boolean;
 }
 
 interface UseLogScrollerReturn {
@@ -75,9 +72,6 @@ export function useLogScroller(options: UseLogScrollerOptions): UseLogScrollerRe
     loading,
     isSearching,
     filteredLineCount,
-    hasStructuredFilters,
-    showRawLogs,
-    wrapLogs = false,
   } = options;
 
   const logViewerRef = useRef<HTMLDivElement | null>(null);
@@ -211,8 +205,6 @@ export function useLogScroller(options: UseLogScrollerOptions): UseLogScrollerRe
     loading,
     logState.buffer,
     logState.visibleFrom,
-    showRawLogs,
-    wrapLogs,
     isFollowing,
   ]);
 
@@ -229,11 +221,9 @@ export function useLogScroller(options: UseLogScrollerOptions): UseLogScrollerRe
     return () => window.cancelAnimationFrame(raf);
   }, [
     filteredLineCount,
-    hasStructuredFilters,
     isSearching,
     loading,
     logState.visibleFrom,
-    showRawLogs,
     tryAutoLoadMoreUntilScrollable,
   ]);
 

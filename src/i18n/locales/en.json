@@ -998,6 +998,8 @@
     "clear_application_confirm": "Clear application logs on the server? Request log files will not be deleted. This action cannot be undone.",
     "clear_search": "Clear search",
     "reading_enabled": "Continuous reading",
+    "live_toggle": "Live",
+    "more_actions": "More log actions",
     "filter_load_more": "Show more matching logs",
     "title": "Logs Viewer",
     "refresh_button": "Refresh Logs",

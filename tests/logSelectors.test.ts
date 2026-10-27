@@ -2,28 +2,21 @@ import { describe, expect, test } from 'bun:test';
 import { applyLogPage, emptyLogBuffer } from '../src/features/logs/model/logBuffer';
 import {
   createLogParserCache,
-  filterLogEntries,
+  filterLogEntriesByLevel,
   searchLogEntries,
 } from '../src/features/logs/model/logSelectors';
 
 const access = (path: string, status = 200) =>
   `[2026-06-15 10:00:00] [abcd1234] [info ] [gin_logger.go:1] ${status} | 1ms | ::1 | POST "${path}"`;
-const noFilters = () => ({
-  methods: new Set<never>(),
-  statuses: new Set<never>(),
-  paths: new Set<string>(),
-  level: '',
-});
 
 describe('log selectors use the whole retained buffer', () => {
   test('finds matches before the initial display window', () => {
     const parse = createLogParserCache();
     const lines = [access('/rare', 500), ...Array.from({ length: 150 }, () => access('/common'))];
     const entries = parse(applyLogPage(emptyLogBuffer(), { lines }));
-    const result = filterLogEntries(entries, { ...noFilters(), paths: new Set(['/rare']) });
+    const result = searchLogEntries(entries, '/rare', false);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(0);
-    expect(searchLogEntries(entries, '/rare', false)).toHaveLength(1);
   });
   test('hides management requests, not application messages mentioning the API', () => {
     const parse = createLogParserCache();
@@ -56,13 +49,13 @@ describe('log selectors use the whole retained buffer', () => {
     expect(searchLogEntries(entries, '019a0000-0000-7000-8000-0000abcd1234', false)).toEqual([]);
     expect(searchLogEntries(entries, 'abcd1234', false)).toHaveLength(1);
   });
-  test('combines level and status filters without mutating entries', () => {
+  test('filters by level without mutating entries', () => {
+    const warn = '[2026-06-15 10:00:01] [--------] [warn ] [server.go:1] upstream slow';
     const entries = createLogParserCache()(
-      applyLogPage(emptyLogBuffer(), { lines: [access('/ok'), access('/fail', 500)] })
+      applyLogPage(emptyLogBuffer(), { lines: [access('/ok'), warn] })
     );
-    expect(
-      filterLogEntries(entries, { ...noFilters(), statuses: new Set(['5xx']), level: 'info' })
-    ).toEqual([entries[1]]);
+    expect(filterLogEntriesByLevel(entries, 'warn')).toEqual([entries[1]]);
+    expect(filterLogEntriesByLevel(entries, '')).toBe(entries);
     expect(entries).toHaveLength(2);
   });
 });

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const readSource = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const page = readSource('src/features/logs/LogsPage.tsx');
 const styles = readSource('src/features/logs/LogsPage.module.scss');
+const menu = readSource('src/features/logs/components/LogsMenu.tsx');
 
 // Structural guards complement the browser viewport/interaction checks. They do not
 // assert browser layout: the important contract is a single flexible scrolling viewer.
@@ -19,33 +20,29 @@ describe('log workspace layout contract', () => {
     expect(styles).not.toMatch(/\n\s*(?:height|min-height|max-height):\s*(?:360|420|480)px/);
   });
 
-  test('error archive and fullscreen share the flexible viewport contract', () => {
+  test('error archive uses the flexible viewport contract', () => {
     const archive = styles.match(/\.errorPanel \{([^}]+)\}/)?.[1] ?? '';
-    const fullscreen = styles.match(/\.logCardFullscreen \{([^}]+)\}/)?.[1] ?? '';
     expect(archive).toContain('flex: 1');
     expect(archive).toContain('min-height: 0');
     expect(archive).not.toMatch(/\bheight:\s*\d+px/);
-    expect(fullscreen).toContain('height: 100dvh');
-    expect(styles).not.toMatch(/\.pageHeader\s*\{\s*display: none/);
     expect(page).toContain('className={styles.errorCard}');
   });
 
-  test('advanced controls are closed initially and opened in a focus-managed modal', () => {
-    expect(page).toContain(
-      '[structuredFiltersExpanded, setStructuredFiltersExpanded] = useState(false)'
-    );
-    expect(page).not.toContain('logsPage.structuredFiltersExpanded');
-    expect(page).toContain('aria-haspopup="dialog"');
-    expect(page).toMatch(/<Modal\s+open=\{structuredFiltersExpanded\}/);
-    expect(page).toContain("'logsPage.showRawLogs'");
+  test('rare actions live in a menu; fullscreen, raw and wrap modes are gone', () => {
+    expect(page).toContain('<LogsMenu');
     expect(page).toContain("'logsPage.hideManagementLogs'");
-    expect(page).not.toContain('!fullscreenLogs &&');
+    expect(page).not.toContain('fullscreen');
+    expect(page).not.toContain('showRawLogs');
+    expect(page).not.toContain('wrapLogs');
+    expect(page).not.toContain('structuredFilters');
+    expect(menu).toContain('aria-haspopup="menu"');
+    expect(menu).toContain('role="menuitemcheckbox"');
+    expect(menu).toContain("event.key === 'Escape'");
   });
 
   test('row actions do not wrap into an empty line or remove keyboard access', () => {
     const copy = styles.match(/^\.copyButton:global\(\.btn\) \{([^}]+)\}/m)?.[1] ?? '';
     expect(copy).toContain('position: sticky');
-    expect(page).toContain("useLocalStorage('logsPage.wrapLogs', false)");
     expect(styles).toContain('width: max-content');
     expect(styles).toContain('flex-wrap: nowrap');
     expect(styles).toContain('.logRow:focus-within .copyButton');
@@ -75,7 +72,7 @@ describe('log workspace layout contract', () => {
   test('toolbar controls share one sizing rule rather than mixing small variants', () => {
     expect(page).toContain('className={styles.levelSelect}');
     expect(styles).toMatch(
-      /\.searchInput:global\(\.input\),\s*\.levelSelect > button,\s*\.filterPanelToggle:global\(\.btn\),\s*\.actionButton:global\(\.btn\) \{[^}]*height: var\(--log-control-height\)/
+      /\.searchInput:global\(\.input\),\s*\.levelSelect > button,\s*\.actionButton:global\(\.btn\) \{[^}]*height: var\(--log-control-height\)/
     );
     expect(styles).toContain('--log-control-height: 40px');
     expect(styles).toContain('--log-control-height: 36px');
@@ -83,13 +80,10 @@ describe('log workspace layout contract', () => {
     expect(styles).not.toContain('height: 32px');
   });
 
-  test('all supported locales describe both filtering and display settings', () => {
-    for (const locale of ['en']) {
-      const messages = JSON.parse(readSource(`src/i18n/locales/${locale}.json`));
-      expect(messages.logs.filter_panel_title).toBeTruthy();
-      expect(messages.logs.show_raw_logs).toBeTruthy();
-      expect(messages.logs.wrap_lines).toBeTruthy();
-      expect(messages.logs.hide_management_logs).toBeTruthy();
-    }
+  test('the locale describes the remaining log controls', () => {
+    const messages = JSON.parse(readSource('src/i18n/locales/en.json'));
+    expect(messages.logs.live_toggle).toBeTruthy();
+    expect(messages.logs.more_actions).toBeTruthy();
+    expect(messages.logs.hide_management_logs).toBeTruthy();
   });
 });
