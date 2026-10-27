@@ -45,6 +45,7 @@ import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { useQuotaActions } from './hooks/useQuotaActions';
+import { summarizeQuotaHealth } from './quotaHealth';
 import { useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
@@ -56,8 +57,6 @@ const SKELETON_CARD_COUNT = 6;
  * Existing providers display filenames; Devin's card and timeline share an
  * identity-aware display label. Keep the filename fallback stable for memoization.
  */
-const displayNameFor = (name: string) => name;
-
 export function QuotaPage() {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
@@ -197,16 +196,26 @@ export function QuotaPage() {
     [t]
   );
 
-  const { loadedCount, attentionCount } = useMemo(() => {
-    let loaded = 0;
+  // Health reads reset instants, so it follows the minute clock regardless of sort.
+  const healthNow = useNow();
+  const healthFor = useCallback(
+    (entry: QuotaFileEntry) => summarizeQuotaHealth(entry.type, getQuota(entry), healthNow),
+    [getQuota, healthNow]
+  );
+
+  const { settledCount, limitedCount, attentionCount } = useMemo(() => {
+    let settled = 0;
+    let limited = 0;
     let attention = 0;
     entries.forEach((entry) => {
-      const status = quotaByType[entry.type][getQuotaCacheKey(entry.file)]?.status;
-      if (status === 'success') loaded += 1;
-      else if (status === 'error') attention += 1;
+      const status = getQuota(entry)?.status;
+      if (status === 'success' || status === 'error') settled += 1;
+      const health = healthFor(entry).status;
+      if (health === 'limited') limited += 1;
+      else if (health === 'error') attention += 1;
     });
-    return { loadedCount: loaded, attentionCount: attention };
-  }, [entries, quotaByType]);
+    return { settledCount: settled, limitedCount: limited, attentionCount: attention };
+  }, [entries, getQuota, healthFor]);
 
   // 剪枝：文件列表落定后，各 provider 缓存只保留仍存在的凭证
   useEffect(() => {
@@ -294,10 +303,18 @@ export function QuotaPage() {
         meta={
           loading ? null : (
             <span>
-              {t('quota_management.header_summary', {
-                loaded: loadedCount,
-                total: entries.length,
-              })}
+              {settledCount < entries.length
+                ? t('quota_management.header_summary', {
+                    loaded: settledCount,
+                    total: entries.length,
+                  })
+                : t('quota_management.header_accounts', { count: entries.length })}
+              {limitedCount > 0 && (
+                <span className={styles.attentionMeta}>
+                  {' · '}
+                  {t('quota_management.meta_limited', { count: limitedCount })}
+                </span>
+              )}
               {attentionCount > 0 && (
                 <span className={styles.attentionMeta}>
                   {' · '}
@@ -411,6 +428,7 @@ export function QuotaPage() {
                 key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
                 entry={entry}
                 quota={getQuota(entry)}
+                health={healthFor(entry)}
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
@@ -449,7 +467,7 @@ export function QuotaPage() {
         )}
 
         {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline entries={pageItems} quotaFor={getQuota} displayNameFor={displayNameFor} />
+        <QuotaTimeline entries={pageItems} quotaFor={getQuota} />
       </section>
     </div>
   );

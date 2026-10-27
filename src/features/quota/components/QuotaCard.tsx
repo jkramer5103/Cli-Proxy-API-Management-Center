@@ -1,13 +1,15 @@
 /**
- * Provider quota card: identity, loading/error state, quota body, and actions.
- * Claude observations remain visible while refreshing or after a failed read.
+ * Provider quota card: identity and a one-glance health badge, the quota body,
+ * then freshness and actions. Claude observations remain visible while
+ * refreshing or after a failed read.
  */
 
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
+import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState } from '@/types';
-import { resolveQuotaErrorMessage } from '@/utils/quota';
-import { getQuotaDisplayName } from '@/utils/quota/identity';
+import { formatInstantShort, formatRelativeInstant, resolveQuotaErrorMessage } from '@/utils/quota';
+import { getQuotaCardTitle } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
   THEME_SURFACE_ICON_BACKGROUND,
@@ -20,6 +22,7 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
+import type { QuotaHealth } from '../quotaHealth';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
 
@@ -29,6 +32,7 @@ const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
   quota?: QuotaCardState;
+  health: QuotaHealth;
   canRefresh: boolean;
   resetting: boolean;
   /** Initial cascade delay; null disables entrance motion for later mounts. */
@@ -37,13 +41,15 @@ export type QuotaCardProps = {
 };
 
 export function QuotaCard(props: QuotaCardProps) {
-  const { entry, quota, canRefresh, resetting, onRefresh, onReset } = props;
-  const { t } = useTranslation();
+  const { entry, quota, health, canRefresh, resetting, onRefresh, onReset } = props;
+  const { t, i18n } = useTranslation();
+  const now = useNow();
+  const locale = i18n.resolvedLanguage;
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const retainedClaudeUsage =
     entry.type === 'claude' && hasClaudeUsageData(quota as ClaudeQuotaState | undefined);
-  const displayName = getQuotaDisplayName(file);
+  const title = getQuotaCardTitle(file);
 
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
@@ -62,14 +68,12 @@ export function QuotaCard(props: QuotaCardProps) {
     quota?.errorStatus,
     quota?.error || t('common.unknown_error')
   );
-  // Claude banked resets join the plan chip row; their expiry list follows it.
+  // Banked Claude resets list under the plan row; the list hides itself when empty.
   const showClaudeReset = entry.type === 'claude' && status === 'success';
-  const claudePlanItems = showClaudeReset ? (
-    <span className={quotaClasses.codexPlanItem}>
-      <span className={quotaClasses.codexPlanLabel}>{t('claude_reset.remaining')}</span>
-      <span className={quotaClasses.codexPlanValue}>{claudeReset.count ?? '--'}</span>
-    </span>
-  ) : undefined;
+  // Only offer the reset when there is one to spend, or an unknown claim to retry.
+  const showClaudeResetAction =
+    entry.type === 'claude' &&
+    (claudeReset.buttonLabel === 'retry' || (claudeReset.count ?? 0) > 0);
   const claudeAfterPlan = showClaudeReset ? (
     <>
       <ClaudeResetGrantDetails grants={claudeReset.grants} classes={quotaClasses} />
@@ -104,23 +108,16 @@ export function QuotaCard(props: QuotaCardProps) {
             <span className={styles.iconFallback}>{typeLabel.slice(0, 1).toUpperCase()}</span>
           )}
         </span>
-        <span className={styles.fileName} title={displayName}>
-          {displayName}
+        <span className={styles.fileName} title={file.name}>
+          {title}
         </span>
+        <HealthBadge health={health} now={now} locale={locale} />
       </header>
 
       <div className={styles.body}>
-        {status === 'idle' ? (
-          <button
-            type="button"
-            className={styles.idleBody}
-            onClick={onRefresh}
-            disabled={!canRefresh}
-          >
-            <IconRefreshCw size={15} aria-hidden="true" className={styles.idleGlyph} />
-            <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
-          </button>
-        ) : loading && !retainedClaudeUsage ? (
+        {status === 'idle' && !canRefresh ? (
+          <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
+        ) : (status === 'idle' || loading) && !retainedClaudeUsage ? (
           <div className={styles.skeleton} aria-busy="true">
             <span className={styles.srOnly}>{t(`${adapter.i18nPrefix}.loading`)}</span>
             {[0, 1].map((row) => (
@@ -135,12 +132,7 @@ export function QuotaCard(props: QuotaCardProps) {
             {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
           </div>
         ) : quota && !retainedClaudeUsage ? (
-          <adapter.Body
-            quota={quota}
-            classes={quotaClasses}
-            planItems={claudePlanItems}
-            afterPlan={claudeAfterPlan}
-          />
+          <adapter.Body quota={quota} classes={quotaClasses} afterPlan={claudeAfterPlan} />
         ) : !retainedClaudeUsage ? (
           <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
         ) : null}
@@ -150,18 +142,26 @@ export function QuotaCard(props: QuotaCardProps) {
           </div>
         )}
         {retainedClaudeUsage && quota && (
-          <adapter.Body
-            quota={quota}
-            classes={quotaClasses}
-            planItems={claudePlanItems}
-            afterPlan={claudeAfterPlan}
-          />
+          <adapter.Body quota={quota} classes={quotaClasses} afterPlan={claudeAfterPlan} />
         )}
       </div>
 
       {status !== 'idle' && (
         <footer className={styles.actionRow}>
-          {entry.type === 'claude' && (
+          <span className={styles.updated} aria-live="polite">
+            {loading
+              ? t('quota_management.updating')
+              : quota?.fetchedAt !== undefined && (
+                  <span title={formatInstantShort(quota.fetchedAt)}>
+                    {now - quota.fetchedAt < 60_000
+                      ? t('quota_management.updated_just_now')
+                      : t('quota_management.updated_ago', {
+                          relative: formatRelativeInstant(quota.fetchedAt, now, locale),
+                        })}
+                  </span>
+                )}
+          </span>
+          {showClaudeResetAction && (
             <button
               type="button"
               className={styles.actionPill}
@@ -198,5 +198,46 @@ export function QuotaCard(props: QuotaCardProps) {
         </footer>
       )}
     </article>
+  );
+}
+
+function HealthBadge({
+  health,
+  now,
+  locale,
+}: {
+  health: QuotaHealth;
+  now: number;
+  locale?: string;
+}) {
+  const { t } = useTranslation();
+  if (health.status === 'unknown') return null;
+
+  let label: string;
+  let tone: 'ok' | 'low' | 'bad';
+  if (health.status === 'error') {
+    label = t('quota_management.health_error');
+    tone = 'bad';
+  } else if (health.status === 'limited') {
+    label =
+      health.limitedUntilMs === null
+        ? t('quota_management.health_limited')
+        : t('quota_management.health_limited_until', {
+            // Short style keeps the badge from squeezing the title on narrow cards.
+            relative: formatRelativeInstant(health.limitedUntilMs, now, locale, 'short'),
+          });
+    tone = 'bad';
+  } else {
+    label = t('quota_management.percent_left', { percent: Math.round(health.minRemaining ?? 0) });
+    tone = health.status === 'low' ? 'low' : 'ok';
+  }
+
+  return (
+    <span
+      className={`${styles.healthBadge} ${styles[`health_${tone}`]}`}
+      title={health.limitedUntilMs === null ? undefined : formatInstantShort(health.limitedUntilMs)}
+    >
+      {label}
+    </span>
   );
 }

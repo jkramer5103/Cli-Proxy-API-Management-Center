@@ -64,6 +64,7 @@
 }
 
 .fileName {
+  flex: 1;
   min-width: 0;
   font-family: $font-mono;
   font-size: 12.5px;
@@ -71,6 +72,38 @@
   letter-spacing: 0.01em;
   color: var(--text-primary);
   @include text-ellipsis;
+}
+
+/* Health badge: the one thing to read when scanning the grid. */
+.healthBadge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  border: 1px solid transparent;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.health_ok {
+  color: var(--viz-success);
+  background: color-mix(in srgb, var(--viz-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--viz-success) 24%, transparent);
+}
+
+.health_low {
+  color: var(--quota-medium-color);
+  background: color-mix(in srgb, var(--quota-medium-color) 10%, transparent);
+  border-color: color-mix(in srgb, var(--quota-medium-color) 28%, transparent);
+}
+
+.health_bad {
+  color: var(--viz-failure);
+  background: color-mix(in srgb, var(--viz-failure) 10%, transparent);
+  border-color: color-mix(in srgb, var(--viz-failure) 30%, transparent);
 }
 
 /* ---------- body 容器 ---------- */
@@ -82,54 +115,7 @@
   min-width: 0;
 }
 
-/* ---------- idle：整块 body 即点击加载的落点 ---------- */
-
-.idleBody {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 76px;
-  padding: 12px 10px;
-  cursor: pointer;
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
-  background: none;
-  color: var(--text-tertiary);
-  transition:
-    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out),
-    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .idleBody:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
-    border-style: solid;
-    color: var(--text-secondary);
-  }
-}
-
-.idleGlyph {
-  flex-shrink: 0;
-  opacity: 0.8;
-}
+/* ---------- idle：未连接时的静态提示 ---------- */
 
 .idleHint {
   font-family: $font-mono;
@@ -218,9 +204,20 @@
 
 .actionRow {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* Freshness sits left of the actions and absorbs the free space. */
+.updated {
+  flex: 1;
+  min-width: 0;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  @include text-ellipsis;
 }
 
 /* 安静描边药丸（与凭证卡图标动作同族：hover 才显色块） */
@@ -279,12 +276,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .card,
-  .idleBody,
   .actionPill {
     transition: none;
   }
 
-  .idleBody:active:not(:disabled),
   .actionPill:active:not(:disabled) {
     transform: none;
   }

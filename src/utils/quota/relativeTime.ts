@@ -50,27 +50,37 @@ export function relativeTimeParts(targetMs: number, nowMs: number): RelativeTime
  */
 const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
 
-function getRelativeFormatter(locale?: string): Intl.RelativeTimeFormat {
-  const key = locale ?? '';
+type RelativeStyle = Intl.RelativeTimeFormatStyle;
+
+function getRelativeFormatter(
+  locale?: string,
+  style: RelativeStyle = 'long'
+): Intl.RelativeTimeFormat {
+  const key = `${locale ?? ''}|${style}`;
   const cached = relativeFormatters.get(key);
   if (cached) return cached;
 
   let formatter: Intl.RelativeTimeFormat;
   try {
-    formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'always' });
+    formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style });
   } catch {
     // An unexpected `resolvedLanguage` throws RangeError rather than falling
     // back on its own. A countdown in the wrong language beats no card at all.
-    formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' });
+    formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'always', style });
   }
   relativeFormatters.set(key, formatter);
   return formatter;
 }
 
 /** Localized relative phrase, e.g. `in 11 days` / `11 天后` / `11 days ago`. */
-export function formatRelativeInstant(targetMs: number, nowMs: number, locale?: string): string {
+export function formatRelativeInstant(
+  targetMs: number,
+  nowMs: number,
+  locale?: string,
+  style: RelativeStyle = 'long'
+): string {
   const { value, unit } = relativeTimeParts(targetMs, nowMs);
-  return getRelativeFormatter(locale).format(value, unit);
+  return getRelativeFormatter(locale, style).format(value, unit);
 }
 
 /**

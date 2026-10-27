@@ -21,6 +21,16 @@ export function getQuotaDisplayName(file: AuthFileItem): string {
   return identity ? `${file.name} · ${identity}` : file.name;
 }
 
+/**
+ * Card and timeline title: the account email when the backend reports one
+ * (public, and what people recognise), otherwise the filename. Devin keeps its
+ * disambiguated name because one file can carry several identities.
+ */
+export function getQuotaCardTitle(file: AuthFileItem): string {
+  if (isDevinFile(file)) return getQuotaDisplayName(file);
+  return file.email?.trim() || file.name;
+}
+
 /** Resolve a cache identity back to the physical filename used by file mutations. */
 export function getQuotaCacheFileName(key: string): string {
   const separatorIndex = key.indexOf(QUOTA_IDENTITY_SEPARATOR);
