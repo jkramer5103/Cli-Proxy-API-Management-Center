@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useInterval } from '@/hooks/useInterval';
-import { useRevealOnScroll } from '@/hooks/motion';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { IconRefreshCw, IconUpload } from '@/components/ui/icons';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { copyToClipboard } from '@/utils/clipboard';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import {
-  clampCardPageSize,
-  getTypeLabel,
   isProblemAuthFile,
   isRuntimeOnlyAuthFile,
   normalizeProviderKey,
@@ -25,8 +24,6 @@ import { BatchActionBar } from '@/features/authFiles/components/BatchActionBar';
 import { OAuthExcludedCard } from '@/features/authFiles/components/OAuthExcludedCard';
 import { OAuthModelAliasCard } from '@/features/authFiles/components/OAuthModelAliasCard';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
-import { VaultHeader } from '@/features/authFiles/components/VaultHeader';
-import { VaultPulse } from '@/features/authFiles/components/VaultPulse';
 import { invalidateAuthFileDerivedCaches } from '@/features/authFiles/cacheInvalidation';
 import {
   buildWildcardSearch,
@@ -42,20 +39,15 @@ import {
   isAuthFilesStatusFilterMode,
   isAuthFilesSortMode,
   readAuthFilesUiState,
-  readPersistedAuthFilesCompactMode,
   writeAuthFilesUiState,
-  writePersistedAuthFilesCompactMode,
   type AuthFilesStatusFilterMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import styles from './AuthFilesPage.module.scss';
 
-const DEFAULT_REGULAR_PAGE_SIZE = 9;
-const DEFAULT_COMPACT_PAGE_SIZE = 12;
+const PAGE_SIZE = 12;
 const SKELETON_CARD_COUNT = 6;
-/** 首屏卡片级联入场总预算，与 useRevealGroup 同一 360ms 语汇。 */
-const CARD_ENTRANCE_BUDGET_MS = 360;
 
 const resolveStatusFilterMode = (
   problemOnly: boolean,
@@ -79,14 +71,8 @@ export function AuthFilesPage() {
 
   const [filter, setFilter] = useState<'all' | string>('all');
   const [statusFilterMode, setStatusFilterMode] = useState<AuthFilesStatusFilterMode>('all');
-  const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSizeByMode, setPageSizeByMode] = useState({
-    regular: DEFAULT_REGULAR_PAGE_SIZE,
-    compact: DEFAULT_COMPACT_PAGE_SIZE,
-  });
-  const [pageSizeInput, setPageSizeInput] = useState('9');
   const [viewMode, setViewMode] = useState<'diagram' | 'list'>('list');
   const [sortMode, setSortMode] = useState<AuthFilesSortMode>('default');
   const [uiStateHydrated, setUiStateHydrated] = useState(false);
@@ -117,7 +103,6 @@ export function AuthFilesPage() {
     error,
     uploading,
     deleting,
-    deletingAll,
     statusUpdating,
     manualRefreshing,
     refreshingAllCredentials,
@@ -131,16 +116,13 @@ export function AuthFilesPage() {
     handleUploadClick,
     handleFileChange,
     handleDelete,
-    handleDeleteAll,
     handleDownload,
     handleManualRefresh,
     handleCooldownReset,
     handleStatusToggle,
     toggleSelect,
     selectAllVisible,
-    invertVisibleSelection,
     deselectAll,
-    batchDownload,
     batchSetStatus,
     batchDelete,
   } = useAuthFilesData({ onFilesMutated: invalidateDerivedCaches });
@@ -180,7 +162,7 @@ export function AuthFilesPage() {
 
   const disableControls = connectionStatus !== 'connected' || refreshingAllCredentials;
   const normalizedFilter = normalizeProviderKey(String(filter));
-  const pageSize = compactMode ? pageSizeByMode.compact : pageSizeByMode.regular;
+  const pageSize = PAGE_SIZE;
   const problemOnly = statusFilterMode === 'problem';
   const disabledOnly = statusFilterMode === 'disabled';
   const enabledOnly = statusFilterMode === 'enabled';
@@ -188,11 +170,6 @@ export function AuthFilesPage() {
   /* ---------- uiState 水合与持久化（localStorage key/形状与旧版完全一致） ---------- */
 
   useEffect(() => {
-    const persistedCompactMode = readPersistedAuthFilesCompactMode();
-    if (typeof persistedCompactMode === 'boolean') {
-      setCompactMode(persistedCompactMode);
-    }
-
     const persisted = readAuthFilesUiState();
     if (persisted) {
       if (typeof persisted.filter === 'string' && persisted.filter.trim()) {
@@ -211,31 +188,12 @@ export function AuthFilesPage() {
           resolveStatusFilterMode(persisted.problemOnly === true, persisted.disabledOnly === true)
         );
       }
-      if (typeof persistedCompactMode !== 'boolean' && typeof persisted.compactMode === 'boolean') {
-        setCompactMode(persisted.compactMode);
-      }
       if (typeof persisted.search === 'string') {
         setSearch(persisted.search);
       }
       if (typeof persisted.page === 'number' && Number.isFinite(persisted.page)) {
         setPage(Math.max(1, Math.round(persisted.page)));
       }
-      const legacyPageSize =
-        typeof persisted.pageSize === 'number' && Number.isFinite(persisted.pageSize)
-          ? clampCardPageSize(persisted.pageSize)
-          : null;
-      const regularPageSize =
-        typeof persisted.regularPageSize === 'number' && Number.isFinite(persisted.regularPageSize)
-          ? clampCardPageSize(persisted.regularPageSize)
-          : (legacyPageSize ?? DEFAULT_REGULAR_PAGE_SIZE);
-      const compactPageSize =
-        typeof persisted.compactPageSize === 'number' && Number.isFinite(persisted.compactPageSize)
-          ? clampCardPageSize(persisted.compactPageSize)
-          : (legacyPageSize ?? DEFAULT_COMPACT_PAGE_SIZE);
-      setPageSizeByMode({
-        regular: regularPageSize,
-        compact: compactPageSize,
-      });
       if (isAuthFilesSortMode(persisted.sortMode)) {
         setSortMode(persisted.sortMode);
       }
@@ -252,84 +210,20 @@ export function AuthFilesPage() {
       statusFilterMode,
       problemOnly,
       disabledOnly,
-      compactMode,
       search,
       page,
-      pageSize,
-      regularPageSize: pageSizeByMode.regular,
-      compactPageSize: pageSizeByMode.compact,
       sortMode,
     });
-    writePersistedAuthFilesCompactMode(compactMode);
   }, [
-    compactMode,
     disabledOnly,
     filter,
     page,
-    pageSize,
-    pageSizeByMode,
     problemOnly,
     search,
     sortMode,
     statusFilterMode,
     uiStateHydrated,
   ]);
-
-  useEffect(() => {
-    setPageSizeInput(String(pageSize));
-  }, [pageSize]);
-
-  const setCurrentModePageSize = useCallback(
-    (next: number) => {
-      setPageSizeByMode((current) =>
-        compactMode ? { ...current, compact: next } : { ...current, regular: next }
-      );
-    },
-    [compactMode]
-  );
-
-  const commitPageSizeInput = useCallback(
-    (rawValue: string) => {
-      const trimmed = rawValue.trim();
-      if (!trimmed) {
-        setPageSizeInput(String(pageSize));
-        return;
-      }
-
-      const value = Number(trimmed);
-      if (!Number.isFinite(value)) {
-        setPageSizeInput(String(pageSize));
-        return;
-      }
-
-      const next = clampCardPageSize(value);
-      setCurrentModePageSize(next);
-      setPageSizeInput(String(next));
-      setPage(1);
-    },
-    [pageSize, setCurrentModePageSize]
-  );
-
-  const handlePageSizeChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const rawValue = event.currentTarget.value;
-      setPageSizeInput(rawValue);
-
-      const trimmed = rawValue.trim();
-      if (!trimmed) return;
-
-      const parsed = Number(trimmed);
-      if (!Number.isFinite(parsed)) return;
-
-      const rounded = Math.round(parsed);
-      // 超出 [MIN, MAX] 时不提交（clamp 后不等于原值即越界）
-      if (clampCardPageSize(rounded) !== rounded) return;
-
-      setCurrentModePageSize(rounded);
-      setPage(1);
-    },
-    [setCurrentModePageSize]
-  );
 
   const handleSortModeChange = useCallback(
     (value: string) => {
@@ -435,10 +329,6 @@ export function AuthFilesPage() {
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * pageSize;
   const pageItems = useMemo(() => sorted.slice(start, start + pageSize), [pageSize, sorted, start]);
-  const selectablePageItems = useMemo(
-    () => pageItems.filter((file) => !isRuntimeOnlyAuthFile(file)),
-    [pageItems]
-  );
   const selectableFilteredItems = useMemo(
     () => sorted.filter((file) => !isRuntimeOnlyAuthFile(file)),
     [sorted]
@@ -458,28 +348,8 @@ export function AuthFilesPage() {
     batchStatusUpdating ||
     selectedHasStatusUpdating;
 
-  /* ---------- 头部遥测计数 ---------- */
-
   const activeCount = useMemo(() => files.filter((file) => file.disabled !== true).length, [files]);
   const problemCount = useMemo(() => files.filter(isProblemAuthFile).length, [files]);
-
-  /* ---------- 首屏卡片一次性级联入场 ----------
-   * 首批数据渲染后立即翻转 cardsAnimated；已挂载的卡片在挂载时捕获过
-   * 自己的延迟（AuthFileCard 内 useState 初始化），不受后续 null 影响，
-   * 而过滤/翻页/轮询新挂载的卡片拿到 null——不重播。 */
-
-  const [cardsAnimated, setCardsAnimated] = useState(false);
-  const enableCardEntrance = !cardsAnimated && !loading && pageItems.length > 0;
-  useEffect(() => {
-    if (enableCardEntrance) {
-      setCardsAnimated(true);
-    }
-  }, [enableCardEntrance]);
-  const cardEntranceDelay = (index: number): number | null => {
-    if (!enableCardEntrance) return null;
-    if (pageItems.length <= 1) return 0;
-    return Math.round((index / (pageItems.length - 1)) * CARD_ENTRANCE_BUDGET_MS);
-  };
 
   /* ---------- 杂项 ---------- */
 
@@ -533,46 +403,61 @@ export function AuthFilesPage() {
     setPage(1);
   }, []);
 
-  const deleteAllButtonLabel = (() => {
-    if (enabledOnly || disabledOnly) {
-      return t('auth_files.delete_filtered_result_button');
-    }
-    if (problemOnly) {
-      return normalizedFilter === 'all'
-        ? t('auth_files.delete_problem_button')
-        : t('auth_files.delete_problem_button_with_type', {
-            type: getTypeLabel(t, normalizedFilter),
-          });
-    }
-    return normalizedFilter === 'all'
-      ? t('auth_files.delete_all_button')
-      : `${t('common.delete')} ${getTypeLabel(t, normalizedFilter)}`;
-  })();
-
-  const oauthSectionRef = useRevealOnScroll<HTMLDivElement>();
-
   const isFirstRunEmpty = !loading && files.length === 0 && !error;
   const isNoResults = !loading && files.length > 0 && pageItems.length === 0;
 
-  const gridClasses = [styles.grid, compactMode ? styles.gridCompact : '']
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div className={styles.page}>
-      <VaultHeader
-        totalCount={files.length}
-        activeCount={activeCount}
-        problemCount={problemCount}
-        loading={loading}
-        refreshing={refreshing}
-        uploading={uploading}
-        disableControls={disableControls}
-        onUpload={handleUploadClick}
-        onRefresh={() => void handleHeaderRefresh()}
-        refreshingCredentials={refreshingAllCredentials}
-        credentialRefreshDisabled={Object.keys(manualRefreshing).length > 0}
-        onRefreshCredentials={handleRefreshAllCredentials}
+      <PageHeader
+        title={t('nav.auth_files')}
+        meta={
+          loading ? null : (
+            <span>
+              {t('auth_files.header_summary', {
+                total: files.length,
+                active: activeCount,
+              })}
+              {problemCount > 0 && (
+                <span className={styles.problemMeta}>
+                  {' · '}
+                  {t('auth_files.meta_problem', { count: problemCount })}
+                </span>
+              )}
+            </span>
+          )
+        }
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefreshAllCredentials}
+              loading={refreshingAllCredentials}
+              disabled={disableControls || loading || Object.keys(manualRefreshing).length > 0}
+            >
+              {t('auth_files.refresh_all_button')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleHeaderRefresh()}
+              loading={refreshing}
+              disabled={loading}
+            >
+              {!refreshing && <IconRefreshCw size={14} />}
+              {t('common.refresh')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleUploadClick}
+              loading={uploading}
+              disabled={disableControls}
+            >
+              {!uploading && <IconUpload size={14} />}
+              {t('auth_files.upload_button')}
+            </Button>
+          </>
+        }
       />
       <AuthFileRefreshResults results={refreshResults} onClose={closeRefreshResults} />
       <input
@@ -583,8 +468,6 @@ export function AuthFilesPage() {
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-
-      <VaultPulse files={files} statusBarCache={statusBarCache} />
 
       <section className={styles.workbench} aria-label={t('auth_files.title_section')}>
         <ProviderTabs
@@ -609,26 +492,6 @@ export function AuthFilesPage() {
           sortMode={sortMode}
           sortOptions={sortOptions}
           onSortModeChange={handleSortModeChange}
-          pageSizeInput={pageSizeInput}
-          onPageSizeInputChange={handlePageSizeChange}
-          onPageSizeCommit={commitPageSizeInput}
-          compactMode={compactMode}
-          onCompactModeChange={setCompactMode}
-          deleteLabel={deleteAllButtonLabel}
-          deleteDisabled={disableControls || loading || deletingAll || files.length === 0}
-          deleteLoading={deletingAll}
-          onDelete={() =>
-            handleDeleteAll({
-              filter,
-              problemOnly,
-              disabledOnly,
-              enabledOnly,
-              onResetFilterToAll: () => setFilter('all'),
-              onResetProblemOnly: () => setStatusFilterMode('all'),
-              onResetDisabledOnly: () => setStatusFilterMode('all'),
-              onResetEnabledOnly: () => setStatusFilterMode('all'),
-            })
-          }
         />
 
         {error && (
@@ -638,7 +501,7 @@ export function AuthFilesPage() {
         )}
 
         {loading ? (
-          <div className={gridClasses} aria-hidden="true">
+          <div className={styles.grid} aria-hidden="true">
             {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
               <Skeleton key={index} height={206} rounded={14} />
             ))}
@@ -673,12 +536,11 @@ export function AuthFilesPage() {
             }
           />
         ) : (
-          <div className={gridClasses}>
-            {pageItems.map((file, index) => (
+          <div className={styles.grid}>
+            {pageItems.map((file) => (
               <AuthFileCard
                 key={getQuotaCacheKey(file)}
                 file={file}
-                compact={compactMode}
                 selected={selectedFiles.has(file.name)}
                 disableControls={disableControls}
                 deleting={deleting}
@@ -686,7 +548,6 @@ export function AuthFilesPage() {
                 manualRefreshing={manualRefreshing}
                 cooldownResetting={cooldownResetting}
                 statusBarCache={statusBarCache}
-                entranceDelayMs={cardEntranceDelay(index)}
                 onShowModels={showModels}
                 onDownload={handleDownload}
                 onManualRefresh={handleManualRefresh}
@@ -729,7 +590,7 @@ export function AuthFilesPage() {
         )}
       </section>
 
-      <div className={styles.configGrid} ref={oauthSectionRef}>
+      <div className={styles.configGrid}>
         <OAuthExcludedCard
           disableControls={disableControls}
           excludedError={excludedError}
@@ -784,15 +645,11 @@ export function AuthFilesPage() {
 
       <BatchActionBar
         selectionCount={selectionCount}
-        selectablePageCount={selectablePageItems.length}
-        selectableFilteredCount={selectableFilteredItems.length}
+        selectableCount={selectableFilteredItems.length}
         disableControls={disableControls}
         batchStatusDisabled={batchStatusButtonsDisabled}
-        onSelectPage={() => selectAllVisible(pageItems)}
-        onSelectFiltered={() => selectAllVisible(sorted)}
-        onInvertPage={() => invertVisibleSelection(pageItems)}
+        onSelectAll={() => selectAllVisible(sorted)}
         onDeselectAll={deselectAll}
-        onDownload={() => void batchDownload(selectedNames)}
         onEnable={() => batchSetStatus(selectedNames, true)}
         onDisable={() => batchSetStatus(selectedNames, false)}
         onDelete={() => batchDelete(selectedNames)}

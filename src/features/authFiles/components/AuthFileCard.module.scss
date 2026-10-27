@@ -31,26 +31,9 @@
   opacity: 0.68;
 }
 
-.cardCompact {
-  gap: 10px;
-  padding: 13px 14px;
-}
-
 .cardSelected {
   border-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 40%, transparent);
-}
-
-/* 首次数据到达时的一次性级联入场；过滤/翻页/轮询不重播 */
-.cardEnter {
-  animation: card-in 180ms var(--ease-out-strong, ease-out) both;
-  animation-delay: var(--card-delay, 0s);
-}
-
-@keyframes card-in {
-  from {
-    opacity: 0;
-  }
 }
 
 /* ---------- 头部：选择 + 供应商药丸 / 账号 ---------- */
@@ -511,10 +494,6 @@
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: none;
-  }
-
-  .cardEnter {
-    animation: none;
   }
 
   .actions :global(.btn) {

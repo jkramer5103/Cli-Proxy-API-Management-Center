@@ -1,4 +1,3 @@
-import { useState, type CSSProperties } from 'react';
 import { getAuthFileRefreshKey } from '@/features/authFiles/manualRefresh';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -36,7 +35,6 @@ import styles from './AuthFileCard.module.scss';
 
 export type AuthFileCardProps = {
   file: AuthFileItem;
-  compact: boolean;
   selected: boolean;
   disableControls: boolean;
   deleting: string | null;
@@ -45,7 +43,6 @@ export type AuthFileCardProps = {
   cooldownResetting: Record<string, boolean>;
   statusBarCache: Map<string, AuthFileStatusBarData>;
   /** One-time entrance delay; null/undefined disables entrance motion. */
-  entranceDelayMs?: number | null;
   onShowModels: (file: AuthFileItem) => void;
   onDownload: (name: string) => void;
   onManualRefresh: (file: AuthFileItem) => void;
@@ -60,7 +57,6 @@ export function AuthFileCard(props: AuthFileCardProps) {
   const { t, i18n } = useTranslation();
   const {
     file,
-    compact,
     selected,
     disableControls,
     deleting,
@@ -68,7 +64,6 @@ export function AuthFileCard(props: AuthFileCardProps) {
     manualRefreshing,
     cooldownResetting,
     statusBarCache,
-    entranceDelayMs,
     onShowModels,
     onDownload,
     onManualRefresh,
@@ -108,24 +103,16 @@ export function AuthFileCard(props: AuthFileCardProps) {
     ? formatDateTimeValue(file.siwcExpiresAt, i18n.language)
     : '';
 
-  // Capture the entrance delay once so subsequent updates do not interrupt it.
-  const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
   const cardClasses = [
     styles.card,
-    compact ? styles.cardCompact : '',
     selected ? styles.cardSelected : '',
     file.disabled === true ? styles.cardDisabled : '',
-    mountEntranceDelayMs != null ? styles.cardEnter : '',
   ]
     .filter(Boolean)
     .join(' ');
-  const cardStyle =
-    mountEntranceDelayMs != null
-      ? ({ '--card-delay': `${mountEntranceDelayMs}ms` } as CSSProperties)
-      : undefined;
 
   return (
-    <article className={cardClasses} style={cardStyle}>
+    <article className={cardClasses}>
       <header className={styles.head}>
         {!isRuntimeOnly && (
           <SelectionCheckbox
@@ -165,7 +152,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
         </p>
       )}
 
-      {!compact && noteValue && (
+      {noteValue && (
         <p className={styles.note} title={noteValue}>
           {noteValue}
         </p>

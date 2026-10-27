@@ -43,25 +43,21 @@ describe('auth file card presentation contract', () => {
     expect(styles).not.toMatch(/\.cardDisabled\s*\{[^}]*opacity:/);
   });
 
-  test('uses a plain-text weight tooltip while preserving the details link', () => {
+  test('uses plain-text weight help without linking to the removed config editor', () => {
     expect(source).toContain("title={t('auth_files.weight_tooltip')}");
-    expect(source).not.toContain("title={t('auth_files.weight_hint')}");
     const detailsSource = readFileSync(
       new URL('../src/features/authFiles/components/AuthFileDetailsSheet.tsx', import.meta.url),
       'utf8'
     );
-    expect(detailsSource).toContain('i18nKey="auth_files.weight_hint"');
+    expect(detailsSource).toContain("hint={t('auth_files.weight_hint')}");
+    expect(detailsSource).not.toContain('/config');
 
-    for (const locale of ['en']) {
-      const { auth_files: messages } = JSON.parse(
-        readFileSync(new URL(`../src/i18n/locales/${locale}.json`, import.meta.url), 'utf8')
-      ) as { auth_files: Record<string, string> };
-      expect(messages.weight_tooltip).toBeTruthy();
-      expect(messages.weight_tooltip).not.toMatch(/<[^>]+>/);
-      expect(messages.weight_hint).toContain('<settingsLink>');
-      expect(messages.weight_hint).toContain('</settingsLink>');
-      expect(messages.weight_tooltip).toBe(messages.weight_hint.replace(/<\/?settingsLink>/g, ''));
-    }
+    const { auth_files: messages } = JSON.parse(
+      readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')
+    ) as { auth_files: Record<string, string> };
+    expect(messages.weight_tooltip).toBeTruthy();
+    expect(messages.weight_tooltip).not.toMatch(/<[^>]+>/);
+    expect(messages.weight_hint).not.toMatch(/<[^>]+>/);
   });
 
   test('retains individual management actions and warning detail', () => {

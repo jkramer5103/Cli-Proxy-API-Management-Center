@@ -59,7 +59,7 @@ function harness() {
   }
   return {
     toggle: callback('handleStatusToggle', 'batchSetStatus'),
-    batch: callback('batchSetStatus', 'batchDownload'),
+    batch: callback('batchSetStatus', 'batchDelete'),
     original,
     requests,
     get files() {

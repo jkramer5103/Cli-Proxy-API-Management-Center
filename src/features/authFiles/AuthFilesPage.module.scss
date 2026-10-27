@@ -45,10 +45,6 @@
   align-items: stretch;
 }
 
-.gridCompact {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-}
-
 /* provider tab 激活（配额模式）时卡片承载配额区，需要更宽的列。
    值与 .grid 相同但**必须保留且排在 .gridCompact 之后**：三个类同时挂在网格上，
    同specificity 靠源序决胜，删掉这条会让「紧凑 + 配额」从 340 掉回 260。 */
@@ -99,4 +95,8 @@
   .page {
     gap: 16px;
   }
+}
+
+.problemMeta {
+  color: var(--danger-color);
 }
