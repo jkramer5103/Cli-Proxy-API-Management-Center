@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/stores';
 import { apiClient } from '@/services/api/client';
 import {
   AnthropicResetGrantError,
+  type AnthropicResetGrant,
   type AnthropicResetGrantStatus,
 } from '@/services/api/claudeResetGrants';
 import type { AuthFileItem } from '@/types';
@@ -20,6 +21,9 @@ import { selectResetGrant } from './selectResetGrant';
 import { readResetGrantsForCard, scheduleResetGrantRead } from './resetGrantReads';
 
 /** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
+/** Stable empty list: the grants feed effects that must not re-run every render. */
+const NO_GRANTS: AnthropicResetGrant[] = [];
+
 export function useClaudeResetGrants(
   file: AuthFileItem,
   enabled: boolean,
@@ -134,7 +138,7 @@ export function useClaudeResetGrants(
   };
   return {
     count: status?.grants.reduce((sum, grant) => sum + grant.resetsLeft, 0) ?? null,
-    grants: status?.grants ?? [],
+    grants: status?.grants ?? NO_GRANTS,
     busy,
     blocked,
     confirm,

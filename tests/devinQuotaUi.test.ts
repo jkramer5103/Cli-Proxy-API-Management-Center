@@ -9,7 +9,7 @@ import { DevinQuotaBody } from '@/features/quota/providers/devin/DevinQuotaBody'
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import { classifyQuotaFiles, buildTabCounts } from '@/features/quota/logic';
 import { QUOTA_TAB_ORDER } from '@/features/quota/constants';
-import { buildTimelineLane, projectLane } from '@/features/quota/quotaTimelineModel';
+import { pickPaceWindow } from '@/features/quota/quotaPaceModel';
 import { collectQuotaRowInstants, nextRecoveryMs } from '@/features/quota/resetSchedule';
 import {
   captureQuotaCacheGeneration,
@@ -106,18 +106,13 @@ describe('Devin quota UI integration', () => {
     );
   });
 
-  test('anchors the timeline on the fitting window without inverting remaining percent', () => {
+  test('paces the weekly window without inverting remaining percent', () => {
     const quota = snapshot();
-    const input = { provider: 'devin' as const, name: file.name, displayName: file.name, quota };
-    const weekly = buildTimelineLane({ ...input, maxPeriodHours: 336 });
-    expect(weekly.anchorMs).toBe(Date.parse('2099-01-08T00:00:00Z'));
-    expect(weekly.remaining).toBe(80);
-    const daily = buildTimelineLane({ ...input, maxPeriodHours: 24 });
-    expect(daily.anchorMs).toBe(Date.parse('2099-01-02T00:00:00Z'));
-    expect(daily.remaining).toBe(0);
-    const reset = weekly.anchorMs!;
-    const projected = projectLane(weekly, reset, reset + 14 * 86400000, reset + 3600000, 'weekly');
-    expect(projected.every((window) => window.remaining === null)).toBe(true);
+    const weekly = pickPaceWindow('devin', quota, '7d');
+    expect(weekly?.resetAtMs).toBe(Date.parse('2099-01-08T00:00:00Z'));
+    expect(weekly?.remaining).toBe(80);
+    // The daily window is longer than the 5h view covers.
+    expect(pickPaceWindow('devin', quota, '5h')).toBeNull();
   });
 
   test('invalidates only the selected Devin credential, then clears the whole session', () => {

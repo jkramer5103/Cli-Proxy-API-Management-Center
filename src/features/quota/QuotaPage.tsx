@@ -1,10 +1,10 @@
 /**
- * 额度查询页：提供商 tabs + 统一卡网格。
+ * Quota page: provider tabs, the pace timeline, then the card grid.
  *
- * 保留的行为契约（重设计不改）：
- * - 现有提供商保持点击加载；Devin 首次可见时主动查询一次，不轮询；
- * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
- * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
+ * Contracts kept across redesigns:
+ * - quota loads automatically for what's on screen and refreshes once stale;
+ * - cacheGeneration session isolation + request-id dedupe (see useQuotaBatchLoader);
+ * - the quota cache is pruned per provider once the file list settles.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,11 +18,12 @@ import { Select } from '@/components/ui/Select';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useNow } from '@/hooks/useNow';
 import { useAuthStore, useQuotaStore } from '@/stores';
+import { prefersReducedMotion } from '@/hooks/motion';
 import type { AuthFileItem } from '@/types';
-import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { getQuotaCacheKey, getQuotaCardTitle } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaCard } from './components/QuotaCard';
-import { QuotaTimeline } from './components/QuotaTimeline';
+import { QuotaPaceTimeline } from './components/QuotaPaceTimeline';
 import {
   QUOTA_PAGE_SIZE,
   QUOTA_SORT_MODES,
@@ -49,16 +50,18 @@ import { summarizeQuotaHealth } from './quotaHealth';
 import { useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
+import { selectClaudeGrants, useClaudeGrantRegistry } from './claudeGrantRegistry';
+import { readPacePrefs, writePacePrefs, type PaceTimelinePrefs } from './paceTimelinePrefs';
+import type { PaceAccountInput } from './quotaPaceModel';
 import styles from './QuotaPage.module.scss';
 
 const SKELETON_CARD_COUNT = 6;
 
-/**
- * Existing providers display filenames; Devin's card and timeline share an
- * identity-aware display label. Keep the filename fallback stable for memoization.
- */
+/** How long a card stays emphasized after the timeline jumps to it. */
+const HIGHLIGHT_MS = 1600;
+
 export function QuotaPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
@@ -238,6 +241,77 @@ export function QuotaPage() {
     });
   }, [entries, error, filesGeneration, loading, sessionGeneration]);
 
+  /* ---------- pace timeline ---------- */
+
+  // The timeline follows the provider tab but not the search, so the overview stays whole.
+  // Disabled credentials serve nothing and never load, so they stay off it.
+  const paceEntries = useMemo(
+    () => filterEntriesByTab(entries, tab).filter((entry) => !entry.file.disabled),
+    [entries, tab]
+  );
+  const claudeGrants = useClaudeGrantRegistry((state) =>
+    selectClaudeGrants(state, sessionGeneration)
+  );
+  const paceAccounts = useMemo<PaceAccountInput[]>(
+    () =>
+      paceEntries.map((entry) => {
+        const key = getQuotaCacheKey(entry.file);
+        const status = healthFor(entry).status;
+        return {
+          key,
+          title: getQuotaCardTitle(entry.file),
+          provider: entry.type,
+          quota: getQuota(entry),
+          claudeGrants: claudeGrants[key],
+          available: status === 'ok' || status === 'low',
+        };
+      }),
+    [paceEntries, getQuota, healthFor, claudeGrants]
+  );
+
+  const [pacePrefs, setPacePrefs] = useState<PaceTimelinePrefs>(readPacePrefs);
+  const handlePacePrefsChange = useCallback((next: PaceTimelinePrefs) => {
+    setPacePrefs(next);
+    writePacePrefs(next);
+  }, []);
+
+  // Jumping to a card: clear a search that hides it, turn to its page, then scroll.
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+  const handlePaceSelect = useCallback(
+    (key: string) => {
+      const entry = entries.find((item) => getQuotaCacheKey(item.file) === key);
+      if (!entry) return;
+      if (!filterEntriesBySearch([entry], search).length) setSearch('');
+      setFocusKey(key);
+    },
+    [entries, search]
+  );
+
+  useEffect(() => {
+    if (focusKey === null) return;
+    const index = sortedEntries.findIndex((entry) => getQuotaCacheKey(entry.file) === focusKey);
+    if (index === -1) return;
+    const targetPage = Math.floor(index / QUOTA_PAGE_SIZE) + 1;
+    if (targetPage !== currentPage) {
+      setPage(targetPage);
+      return;
+    }
+    setFocusKey(null);
+    const card = document.querySelector<HTMLElement>(`[data-quota-key="${CSS.escape(focusKey)}"]`);
+    card?.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      block: 'center',
+    });
+    setHighlightKey(focusKey);
+  }, [focusKey, sortedEntries, currentPage]);
+
+  useEffect(() => {
+    if (highlightKey === null) return;
+    const timeout = window.setTimeout(() => setHighlightKey(null), HIGHLIGHT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [highlightKey]);
+
   /* ---------- 加载与操作 ---------- */
 
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
@@ -279,8 +353,14 @@ export function QuotaPage() {
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
 
+  // Cards on this page plus every timeline account, each loaded once.
+  const autoLoadEntries = useMemo(() => {
+    const seen = new Set(pageItems);
+    return [...pageItems, ...paceEntries.filter((entry) => !seen.has(entry))];
+  }, [pageItems, paceEntries]);
+
   useQuotaAutoLoad(
-    pageItems,
+    autoLoadEntries,
     disableControls ||
       loading ||
       batchLoading ||
@@ -342,6 +422,18 @@ export function QuotaPage() {
         <div className={styles.tabsRow}>
           <ProviderTabs types={tabIds} counts={tabCounts} active={tab} onChange={handleTabChange} />
         </div>
+
+        {!loading && (
+          <QuotaPaceTimeline
+            accounts={paceAccounts}
+            providerOrder={QUOTA_TAB_ORDER}
+            prefs={pacePrefs}
+            onPrefsChange={handlePacePrefsChange}
+            onSelect={handlePaceSelect}
+            now={healthNow}
+            locale={i18n.resolvedLanguage}
+          />
+        )}
 
         <div className={styles.toolbar}>
           <div className={styles.search}>
@@ -431,6 +523,7 @@ export function QuotaPage() {
                 health={healthFor(entry)}
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
+                highlighted={highlightKey === getQuotaCacheKey(entry.file)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
               />
@@ -465,9 +558,6 @@ export function QuotaPage() {
             </Button>
           </div>
         )}
-
-        {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline entries={pageItems} quotaFor={getQuota} />
       </section>
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildTimelineLane } from '@/features/quota/quotaTimelineModel';
+import { pickPaceWindow } from '@/features/quota/quotaPaceModel';
 import { collectQuotaRowInstants, nextRecoveryMs } from '@/features/quota/resetSchedule';
 import type { MetaQuotaState } from '@/types';
 
@@ -65,8 +65,8 @@ describe('Meta quota reset scheduling', () => {
   });
 });
 
-describe('Meta quota timeline lane', () => {
-  test('prefers weekly scope and converts duration minutes to hours', () => {
+describe('Meta quota pace windows', () => {
+  test('picks the weekly window for 7d and the short one for 5h, in hours', () => {
     const quota = state([
       {
         id: 'window',
@@ -81,21 +81,14 @@ describe('Meta quota timeline lane', () => {
       },
     ]);
 
-    const lane = buildTimelineLane({
-      name: 'meta.json',
-      displayName: 'Meta',
-      provider: 'meta',
-      quota,
-      maxPeriodHours: 14 * 24,
-    });
+    const weekly = pickPaceWindow('meta', quota, '7d');
+    expect(weekly?.resetAtMs).toBe(NOW_MS + 7 * 24 * 60 * 60 * 1000);
+    expect(weekly?.periodHours).toBe(168);
+    expect(weekly?.remaining).toBe(60);
 
-    expect(lane.anchorMs).toBe(NOW_MS + 7 * 24 * 60 * 60 * 1000);
-    expect(lane.periodHours).toBe(168);
-    expect(lane.remaining).toBe(60);
-    expect(lane.limits).toEqual([
-      { label: 'meta_quota.window', remaining: 100 },
-      { label: 'meta_quota.weekly', remaining: 60 },
-    ]);
+    const short = pickPaceWindow('meta', quota, '5h');
+    expect(short?.periodHours).toBe(1);
+    expect(short?.remaining).toBe(100);
   });
 
   test('does not turn null usage into either zero or 100 percent remaining', () => {
@@ -107,15 +100,6 @@ describe('Meta quota timeline lane', () => {
       },
     ]);
 
-    const lane = buildTimelineLane({
-      name: 'meta.json',
-      displayName: 'Meta',
-      provider: 'meta',
-      quota,
-      maxPeriodHours: 14 * 24,
-    });
-
-    expect(lane.remaining).toBeNull();
-    expect(lane.limits).toEqual([]);
+    expect(pickPaceWindow('meta', quota, '7d')).toBeNull();
   });
 });

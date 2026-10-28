@@ -4,12 +4,14 @@
  * refreshing or after a failed read.
  */
 
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState } from '@/types';
 import { formatInstantShort, formatRelativeInstant, resolveQuotaErrorMessage } from '@/utils/quota';
-import { getQuotaCardTitle } from '@/utils/quota/identity';
+import { useQuotaStore } from '@/stores';
+import { getQuotaCacheKey, getQuotaCardTitle } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
   THEME_SURFACE_ICON_BACKGROUND,
@@ -22,6 +24,7 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
+import { useClaudeGrantRegistry } from '../claudeGrantRegistry';
 import type { QuotaHealth } from '../quotaHealth';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
@@ -35,13 +38,14 @@ export type QuotaCardProps = {
   health: QuotaHealth;
   canRefresh: boolean;
   resetting: boolean;
-  /** Initial cascade delay; null disables entrance motion for later mounts. */
+  /** Briefly emphasized after the timeline jumps here. */
+  highlighted?: boolean;
   onRefresh: () => void;
   onReset: () => void;
 };
 
 export function QuotaCard(props: QuotaCardProps) {
-  const { entry, quota, health, canRefresh, resetting, onRefresh, onReset } = props;
+  const { entry, quota, health, canRefresh, resetting, highlighted, onRefresh, onReset } = props;
   const { t, i18n } = useTranslation();
   const now = useNow();
   const locale = i18n.resolvedLanguage;
@@ -60,6 +64,13 @@ export function QuotaCard(props: QuotaCardProps) {
     quota,
     onRefresh
   );
+  // The pace timeline marks banked-reset expiries from what the card already read.
+  const cacheKey = getQuotaCacheKey(file);
+  const publishGrants = useClaudeGrantRegistry((state) => state.publish);
+  useEffect(() => {
+    if (entry.type !== 'claude') return;
+    publishGrants(useQuotaStore.getState().cacheGeneration, cacheKey, claudeReset.grants);
+  }, [cacheKey, claudeReset.grants, entry.type, publishGrants]);
   const providerType = entry.type;
   const iconSrc = getAuthFileIcon(providerType);
   const typeLabel = getTypeLabel(t, providerType);
@@ -91,7 +102,10 @@ export function QuotaCard(props: QuotaCardProps) {
     Boolean(adapter.canResetQuota?.(quota));
 
   return (
-    <article className={styles.card}>
+    <article
+      className={highlighted ? `${styles.card} ${styles.highlighted}` : styles.card}
+      data-quota-key={cacheKey}
+    >
       <header className={styles.head}>
         <span
           className={styles.iconWrap}

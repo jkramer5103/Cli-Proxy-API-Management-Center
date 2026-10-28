@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildTimelineLane } from '@/features/quota/quotaTimelineModel';
+import { pickPaceWindow } from '@/features/quota/quotaPaceModel';
 import { buildKimiQuotaRows } from '@/utils/quota';
 
 describe('Kimi quota ordering', () => {
@@ -34,15 +34,11 @@ describe('Kimi quota ordering', () => {
     expect(rows[1]?.labelKey).toBe('kimi_quota.weekly_limit');
     expect(rows[1]?.periodHours).toBe(168);
 
-    const lane = buildTimelineLane({
-      name: 'kimi.json',
-      displayName: 'Kimi',
-      provider: 'kimi',
-      quota: { status: 'success', rows },
-      maxPeriodHours: 5,
-    });
-    expect(lane.anchorMs).toBe(rows[0]?.resetAtMs);
-    expect(lane.periodHours).toBe(5);
+    const quota = { status: 'success', rows };
+    const short = pickPaceWindow('kimi', quota, '5h');
+    expect(short?.resetAtMs).toBe(rows[0]?.resetAtMs);
+    expect(short?.periodHours).toBe(5);
+    expect(pickPaceWindow('kimi', quota, '7d')?.periodHours).toBe(168);
   });
 });
 

@@ -8,7 +8,7 @@ import { apiCallApi, getApiCallErrorMessage, type ApiCallResult } from '@/servic
 import { apiClient } from '@/services/api/client';
 import { CLAUDE_CONFIG, hasClaudeUsageData } from '@/features/quota/providers/claude/data';
 import { ClaudeQuotaBody } from '@/features/quota/providers/claude/ClaudeQuotaBody';
-import { buildTimelineLane } from '@/features/quota/quotaTimelineModel';
+import { readPace } from '@/features/quota/quotaPaceModel';
 import { nextRecoveryMs } from '@/features/quota/resetSchedule';
 import { QUOTA_CLASS_KEYS, bindQuotaClasses } from '@/features/quota/types';
 import {
@@ -373,15 +373,9 @@ describe('Claude quota usage reads', () => {
       expect(nextRecoveryMs('claude', stored, Date.parse(observedAt))).toBe(
         Date.parse('2026-10-15T09:00:00Z')
       );
-      expect(
-        buildTimelineLane({
-          provider: 'claude',
-          name: file.name,
-          displayName: file.name,
-          quota: stored,
-          maxPeriodHours: 14 * 24,
-        }).anchorMs
-      ).toBe(Date.parse('2026-10-15T09:00:00Z'));
+      expect(readPace('claude', stored, '7d', Date.parse(observedAt))?.resetAtMs).toBe(
+        Date.parse('2026-10-15T09:00:00Z')
+      );
       expect(post).toHaveBeenCalledTimes(2);
       store.setClaudeQuota((previous) => previous);
       expect(CLAUDE_CONFIG.storeSelector(useQuotaStore.getState())[file.name]).toBe(state);

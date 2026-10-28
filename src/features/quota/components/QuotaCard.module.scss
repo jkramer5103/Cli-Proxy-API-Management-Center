@@ -290,3 +290,23 @@
     animation: none;
   }
 }
+
+// Briefly marks the card the pace timeline just jumped to.
+.highlighted {
+  animation: cardHighlight 1.6s var(--ease-out-strong, ease-out);
+}
+
+@keyframes cardHighlight {
+  0%,
+  35% {
+    border-color: var(--text-secondary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-secondary) 22%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlighted {
+    animation: none;
+    border-color: var(--text-secondary);
+  }
+}
