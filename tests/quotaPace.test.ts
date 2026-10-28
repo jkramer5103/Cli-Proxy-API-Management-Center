@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  axisPercent,
-  axisTicks,
   buildPaceGroups,
-  collectBanked,
   pickPaceWindow,
   readPace,
   readWindow,
@@ -121,38 +118,6 @@ describe('window choice per view', () => {
   });
 });
 
-describe('banked resets', () => {
-  test('merges Codex credits by expiry and nudges the ones expiring within a day', () => {
-    const soon = new Date(NOW + 6 * HOUR_MS).toISOString();
-    const later = new Date(NOW + 3 * DAY_MS).toISOString();
-    const quota = {
-      rateLimitResetCredits: [
-        { status: 'available', expiresAt: later },
-        { status: 'available', expiresAt: soon },
-        { status: 'available', expiresAt: soon },
-        { status: 'used', expiresAt: soon },
-        { status: 'available', expiresAt: new Date(NOW - HOUR_MS).toISOString() },
-      ],
-    };
-    expect(collectBanked('codex', quota, undefined, NOW)).toEqual([
-      { atMs: NOW + 6 * HOUR_MS, count: 2, soon: true },
-      { atMs: NOW + 3 * DAY_MS, count: 1, soon: false },
-    ]);
-  });
-
-  test('counts unused Claude grant resets and drops spent or undated grants', () => {
-    const endsAt = new Date(NOW + 2 * DAY_MS).toISOString();
-    const grants = [
-      { resetsLeft: 2, endsAt },
-      { resetsLeft: 0, endsAt },
-      { resetsLeft: 1, endsAt: null },
-    ];
-    expect(collectBanked('claude', undefined, grants, NOW)).toEqual([
-      { atMs: NOW + 2 * DAY_MS, count: 2, soon: false },
-    ]);
-  });
-});
-
 describe('groups and pools', () => {
   const account = (
     key: string,
@@ -176,7 +141,6 @@ describe('groups and pools', () => {
         account('cx', 10, DAY_MS, 'codex'),
         account('soon', 10, DAY_MS),
       ],
-      '7d',
       prefs,
       NOW,
       ['claude', 'codex']
@@ -189,7 +153,6 @@ describe('groups and pools', () => {
     // a: 30% left, 50% time left (gap −20). b: 90% left, 50% time left (gap +40).
     const groups = buildPaceGroups(
       [account('a', 70, 3.5 * DAY_MS), account('b', 10, 3.5 * DAY_MS, 'claude', false)],
-      '7d',
       prefs,
       NOW,
       ['claude']
@@ -197,18 +160,17 @@ describe('groups and pools', () => {
     const pool = groups[0]?.pool;
     expect(pool?.members).toBe(2);
     expect(pool?.available).toBe(1);
-    expect(pool?.remaining).toBeCloseTo(60);
-    expect(pool?.timeLeft).toBeCloseTo(50);
-    expect(pool?.gap).toBeCloseTo(10);
-    expect(pool?.verdict).toBe('speed');
-    expect(pool?.resets).toEqual([NOW + 3.5 * DAY_MS, NOW + 3.5 * DAY_MS]);
+    expect(pool?.windows['7d']?.remaining).toBeCloseTo(60);
+    expect(pool?.windows['7d']?.timeLeft).toBeCloseTo(50);
+    expect(pool?.windows['7d']?.gap).toBeCloseTo(10);
+    expect(pool?.windows['7d']?.verdict).toBe('speed');
+    expect(pool?.windows['5h']).toBeNull();
   });
 
   test('excluded accounts stay as rows but leave the pool; hidden ones leave both', () => {
     const inputs = [account('a', 10, DAY_MS), account('b', 10, DAY_MS), account('c', 10, DAY_MS)];
     const excluded = buildPaceGroups(
       inputs,
-      '7d',
       { excluded: new Set(['a', 'b']), hidden: new Set<string>() },
       NOW,
       ['claude']
@@ -218,7 +180,6 @@ describe('groups and pools', () => {
 
     const hidden = buildPaceGroups(
       inputs,
-      '7d',
       { excluded: new Set<string>(), hidden: new Set(['c']) },
       NOW,
       ['claude']
@@ -227,61 +188,51 @@ describe('groups and pools', () => {
     expect(hidden[0]?.pool?.members).toBe(2);
   });
 
-  test('banked marks only appear on the 7d view; status explains missing readings', () => {
+  test('reads both windows per account and pools each one', () => {
+    const input = (key: string, weeklyUsed: number, fiveHourUsed: number): PaceAccountInput => ({
+      key,
+      title: key,
+      provider: 'claude',
+      quota: claude([
+        win('seven-day', weeklyUsed, 3.5 * DAY_MS, WEEK),
+        win('five-hour', fiveHourUsed, 2.5 * HOUR_MS, 5),
+      ]),
+      available: true,
+    });
+    const [group] = buildPaceGroups([input('a', 70, 50), input('b', 10, 50)], prefs, NOW, [
+      'claude',
+    ]);
+    expect(group?.accounts[0]?.readings['7d']?.verdict).toBe('slow');
+    expect(group?.accounts[0]?.readings['5h']?.verdict).toBe('on');
+    expect(group?.pool?.windows['7d']?.remaining).toBeCloseTo(60);
+    expect(group?.pool?.windows['5h']).toMatchObject({ remaining: 50, verdict: 'on' });
+  });
+
+  test('status explains missing readings; one missing window keeps the other', () => {
     const input: PaceAccountInput = {
       key: 'cx',
       title: 'cx',
       provider: 'codex',
-      quota: {
-        status: 'success',
-        windows: [win('weekly', 10, DAY_MS, WEEK)],
-        rateLimitResetCredits: [
-          { status: 'available', expiresAt: new Date(NOW + DAY_MS).toISOString() },
-        ],
-      },
+      quota: { status: 'success', windows: [win('weekly', 10, DAY_MS, WEEK)] },
       available: true,
     };
-    expect(
-      buildPaceGroups([input], '7d', prefs, NOW, ['codex'])[0]?.accounts[0]?.banked
-    ).toHaveLength(1);
-    const short = buildPaceGroups([input], '5h', prefs, NOW, ['codex'])[0]?.accounts[0];
-    expect(short?.banked).toEqual([]);
-    expect(short?.status).toBe('none');
-    const failed = buildPaceGroups([{ ...input, quota: { status: 'error' } }], '7d', prefs, NOW, [
+    const weeklyOnly = buildPaceGroups([input], prefs, NOW, ['codex'])[0]?.accounts[0];
+    expect(weeklyOnly?.status).toBe('ready');
+    expect(weeklyOnly?.readings['5h']).toBeNull();
+    const none = buildPaceGroups(
+      [{ ...input, quota: { status: 'success', windows: [] } }],
+      prefs,
+      NOW,
+      ['codex']
+    )[0]?.accounts[0];
+    expect(none?.status).toBe('none');
+    const failed = buildPaceGroups([{ ...input, quota: { status: 'error' } }], prefs, NOW, [
       'codex',
     ])[0]?.accounts[0];
     expect(failed?.status).toBe('error');
-  });
-});
-
-describe('axis', () => {
-  test('places instants across the view and drops ones off it', () => {
-    expect(axisPercent(NOW, '7d', NOW)).toBe(0);
-    expect(axisPercent(NOW + 3.5 * DAY_MS, '7d', NOW)).toBeCloseTo(50);
-    expect(axisPercent(NOW + 8 * DAY_MS, '7d', NOW)).toBeNull();
-    expect(axisPercent(NOW + 2.5 * HOUR_MS, '5h', NOW)).toBeCloseTo(50);
-  });
-
-  test('ticks fall on local midnights for 7d and whole hours for 5h', () => {
-    const now = new Date(2026, 9, 28, 14, 20).getTime();
-    const days = axisTicks('7d', now);
-    expect(days).toHaveLength(7);
-    expect(days.every((at) => new Date(at).getHours() === 0)).toBe(true);
-    const hours = axisTicks('5h', now);
-    expect(hours.map((at) => new Date(at).getHours())).toEqual([15, 16, 17, 18, 19]);
-  });
-
-  test('a DST change neither skips nor repeats a midnight', () => {
-    const original = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    process.env.TZ = 'Europe/Berlin';
-    try {
-      // Clocks fall back on Sunday 2026-10-25.
-      const now = new Date(2026, 9, 22, 9).getTime();
-      const days = axisTicks('7d', now).map((at) => new Date(at).getDate());
-      expect(days).toEqual([23, 24, 25, 26, 27, 28, 29]);
-    } finally {
-      process.env.TZ = original;
-    }
+    const loading = buildPaceGroups([{ ...input, quota: undefined }], prefs, NOW, ['codex'])[0]
+      ?.accounts[0];
+    expect(loading?.status).toBe('loading');
   });
 });
 
@@ -293,7 +244,6 @@ describe('preferences', () => {
       parsePacePrefs(
         JSON.stringify({ view: '5h', collapsed: true, excluded: ['a', 1], hidden: 'b' })
       )
-    ).toEqual({ view: '5h', collapsed: true, excluded: ['a'], hidden: [] });
-    expect(parsePacePrefs(JSON.stringify({ view: '14d' })).view).toBe('7d');
+    ).toEqual({ collapsed: true, excluded: ['a'], hidden: [] });
   });
 });

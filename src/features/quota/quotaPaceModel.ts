@@ -1,30 +1,25 @@
 /**
- * Quota pace timeline: are you on track to use each window before it resets?
+ * Quota pace: are you on track to use each window before it resets?
  *
  * Every window has two clocks — how much quota is left and how much of the
  * window is left. Comparing them tells you whether to slow down (quota is
- * running out faster than time) or speed up (quota will reset unused). The
- * timeline also lines up upcoming resets and banked-reset expiries on one axis.
+ * running out faster than time) or speed up (quota will reset unused). Each
+ * account is read for its 5-hour and its weekly window.
  *
  * Pure functions: no React, no store, and `now` is always passed in.
  */
 
-import { DAY_MS, HOUR_MS } from '@/utils/time/durations';
+import { HOUR_MS } from '@/utils/time/durations';
 import type { QuotaProviderType } from './providers/types';
 
 export type PaceView = '7d' | '5h';
-export const PACE_VIEWS: readonly PaceView[] = ['7d', '5h'];
-
-/** Each view's axis runs from now to now + this. */
-export const PACE_SPAN_MS: Record<PaceView, number> = { '7d': 7 * DAY_MS, '5h': 5 * HOUR_MS };
+/** Display order: the short window first, then the weekly one. */
+export const PACE_VIEWS: readonly PaceView[] = ['5h', '7d'];
 
 /** Points of drift between quota left and time left that still read as "on pace". */
 export const PACE_TOLERANCE = 2;
 
-/** Banked resets expiring within this, with resets unused, get a "use soon" nudge. */
-export const BANKED_SOON_MS = DAY_MS;
-
-/** Windows up to this length belong to the 5h view; longer ones to the 7d view. */
+/** Windows up to this length count as the 5h window; longer ones as the 7d window. */
 const SHORT_WINDOW_MAX_HOURS = 12;
 const WEEK_HOURS = 7 * 24;
 
@@ -251,60 +246,6 @@ export function readPace(
   return window ? readWindow(window, nowMs) : null;
 }
 
-/* ---------------------------------------------------------------- banked */
-
-export interface BankedMark {
-  atMs: number;
-  /** Resets still unused that expire at this instant. */
-  count: number;
-  soon: boolean;
-}
-
-interface CodexCreditLike {
-  status?: string;
-  expiresAt?: string;
-}
-
-interface ClaudeGrantLike {
-  resetsLeft: number;
-  endsAt: string | null;
-}
-
-/**
- * Upcoming banked-reset expiries for an account, merged by instant.
- *
- * Codex credits live in its quota state; Claude grants are read per card, so
- * they're passed in. Expiries already past and grants with nothing left drop out.
- */
-export function collectBanked(
-  provider: QuotaProviderType,
-  quota: unknown,
-  claudeGrants: readonly ClaudeGrantLike[] | undefined,
-  nowMs: number
-): BankedMark[] {
-  const counts = new Map<number, number>();
-  const add = (iso: string | null | undefined, count: number) => {
-    const atMs = new Date(iso ?? '').getTime();
-    if (!Number.isFinite(atMs) || atMs <= nowMs || count <= 0) return;
-    counts.set(atMs, (counts.get(atMs) ?? 0) + count);
-  };
-
-  if (provider === 'codex') {
-    const credits = (quota as { rateLimitResetCredits?: CodexCreditLike[] } | undefined)
-      ?.rateLimitResetCredits;
-    for (const credit of credits ?? []) {
-      if (credit.status === 'available') add(credit.expiresAt, 1);
-    }
-  }
-  if (provider === 'claude') {
-    for (const grant of claudeGrants ?? []) add(grant.endsAt, grant.resetsLeft);
-  }
-
-  return [...counts.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([atMs, count]) => ({ atMs, count, soon: atMs - nowMs <= BANKED_SOON_MS }));
-}
-
 /* ----------------------------------------------------------------- groups */
 
 export interface PaceAccountInput {
@@ -312,33 +253,35 @@ export interface PaceAccountInput {
   title: string;
   provider: QuotaProviderType;
   quota: unknown;
-  claudeGrants?: readonly ClaudeGrantLike[];
   /** Usable right now by the card's health rules (not limited, not failing, loaded). */
   available: boolean;
 }
+
+export type PaceReadings = Record<PaceView, PaceReading | null>;
 
 export interface PaceAccount {
   key: string;
   title: string;
   provider: QuotaProviderType;
-  /** null until quota loads, or when the account has no window for this view. */
-  reading: PaceReading | null;
+  /** Per window; null until quota loads, or when the account has no such window. */
+  readings: PaceReadings;
   status: 'ready' | 'error' | 'loading' | 'none';
-  banked: BankedMark[];
 }
 
-export interface PacePool {
-  members: number;
-  available: number;
+export interface PacePoolWindow {
   /** Mean quota left across members with a reading. */
-  remaining: number | null;
+  remaining: number;
   /** Mean time left across pacing members. */
   timeLeft: number | null;
   /** Mean of the pacing members' gaps. */
   gap: number | null;
   verdict: PaceVerdict | null;
-  /** Upcoming resets of the members, ascending. */
-  resets: number[];
+}
+
+export interface PacePool {
+  members: number;
+  available: number;
+  windows: Record<PaceView, PacePoolWindow | null>;
 }
 
 export interface PaceGroup {
@@ -357,44 +300,50 @@ export interface PacePrefs {
 const mean = (values: number[]) =>
   values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 
-function statusOf(quota: unknown, reading: PaceReading | null): PaceAccount['status'] {
+function statusOf(quota: unknown, readings: PaceReadings): PaceAccount['status'] {
   const status = (quota as { status?: string } | undefined)?.status;
   if (status === 'error') return 'error';
-  if (reading) return 'ready';
+  if (PACE_VIEWS.some((view) => readings[view])) return 'ready';
   if (status === 'success') return 'none';
   return 'loading';
+}
+
+function poolWindow(readings: PaceReading[]): PacePoolWindow | null {
+  const remaining = mean(readings.map((reading) => reading.remaining));
+  if (remaining === null) return null;
+  const pacing = readings.filter((reading) => reading.gap !== null && reading.timeLeft !== null);
+  const gap = mean(pacing.map((reading) => reading.gap as number));
+  return {
+    remaining,
+    timeLeft: mean(pacing.map((reading) => reading.timeLeft as number)),
+    gap,
+    verdict: gap === null ? null : verdictFor(gap),
+  };
 }
 
 export function buildPool(
   accounts: readonly PaceAccount[],
   availability: ReadonlyMap<string, boolean>
 ): PacePool {
-  const readings = accounts
-    .map((account) => account.reading)
-    .filter((reading): reading is PaceReading => reading !== null);
-  const pacing = readings.filter((reading) => reading.gap !== null && reading.timeLeft !== null);
-  const gap = mean(pacing.map((reading) => reading.gap as number));
+  const windowOf = (view: PaceView) =>
+    poolWindow(
+      accounts
+        .map((account) => account.readings[view])
+        .filter((reading): reading is PaceReading => reading !== null)
+    );
   return {
     members: accounts.length,
     available: accounts.filter((account) => availability.get(account.key)).length,
-    remaining: mean(readings.map((reading) => reading.remaining)),
-    timeLeft: mean(pacing.map((reading) => reading.timeLeft as number)),
-    gap,
-    verdict: gap === null ? null : verdictFor(gap),
-    resets: readings
-      .map((reading) => reading.resetAtMs)
-      .filter((at): at is number => at !== null)
-      .sort((a, b) => a - b),
+    windows: { '5h': windowOf('5h'), '7d': windowOf('7d') },
   };
 }
 
 /**
- * Group visible accounts by provider, soonest reset first, each group headed by
- * a pool when two or more of its accounts are pooled.
+ * Group visible accounts by provider, soonest weekly reset first, each group
+ * headed by a pool when two or more of its accounts are pooled.
  */
 export function buildPaceGroups(
   inputs: readonly PaceAccountInput[],
-  view: PaceView,
   prefs: PacePrefs,
   nowMs: number,
   providerOrder: readonly QuotaProviderType[]
@@ -404,20 +353,22 @@ export function buildPaceGroups(
 
   for (const input of inputs) {
     if (prefs.hidden.has(input.key)) continue;
-    const reading = readPace(input.provider, input.quota, view, nowMs);
+    const readings: PaceReadings = {
+      '5h': readPace(input.provider, input.quota, '5h', nowMs),
+      '7d': readPace(input.provider, input.quota, '7d', nowMs),
+    };
     const account: PaceAccount = {
       key: input.key,
       title: input.title,
       provider: input.provider,
-      reading,
-      status: statusOf(input.quota, reading),
-      banked:
-        view === '7d' ? collectBanked(input.provider, input.quota, input.claudeGrants, nowMs) : [],
+      readings,
+      status: statusOf(input.quota, readings),
     };
     byProvider.set(input.provider, [...(byProvider.get(input.provider) ?? []), account]);
   }
 
-  const resetKey = (account: PaceAccount) => account.reading?.resetAtMs ?? Infinity;
+  const resetKey = (account: PaceAccount) =>
+    account.readings['7d']?.resetAtMs ?? account.readings['5h']?.resetAtMs ?? Infinity;
   return providerOrder
     .filter((provider) => byProvider.has(provider))
     .map((provider) => {
@@ -431,35 +382,4 @@ export function buildPaceGroups(
         accounts,
       };
     });
-}
-
-/* ------------------------------------------------------------------- axis */
-
-/** Position of an instant on a view's axis, 0..100, or null when off it. */
-export function axisPercent(atMs: number, view: PaceView, nowMs: number): number | null {
-  const percent = ((atMs - nowMs) / PACE_SPAN_MS[view]) * 100;
-  return percent < 0 || percent > 100 ? null : percent;
-}
-
-/**
- * Gridline instants for a view: each local midnight across 7 days, or each
- * whole hour across 5. Steps on the calendar so DST neither skips nor repeats a day.
- */
-export function axisTicks(view: PaceView, nowMs: number): number[] {
-  const endMs = nowMs + PACE_SPAN_MS[view];
-  const ticks: number[] = [];
-  const cursor = new Date(nowMs);
-  if (view === '7d') {
-    cursor.setHours(0, 0, 0, 0);
-    cursor.setDate(cursor.getDate() + 1);
-  } else {
-    cursor.setMinutes(0, 0, 0);
-    cursor.setHours(cursor.getHours() + 1);
-  }
-  while (cursor.getTime() < endMs) {
-    ticks.push(cursor.getTime());
-    if (view === '7d') cursor.setDate(cursor.getDate() + 1);
-    else cursor.setHours(cursor.getHours() + 1);
-  }
-  return ticks;
 }

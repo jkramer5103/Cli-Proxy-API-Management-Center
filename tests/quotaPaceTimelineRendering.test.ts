@@ -20,7 +20,6 @@ const claude = (key: string, weeklyUsed: number, fiveHourUsed: number): PaceAcco
       { id: 'five-hour', usedPercent: fiveHourUsed, resetAtMs: NOW + HOUR_MS, periodHours: 5 },
     ],
   },
-  claudeGrants: [{ resetsLeft: 2, endsAt: new Date(NOW + 6 * HOUR_MS).toISOString() }],
   available: fiveHourUsed < 100,
 });
 
@@ -37,24 +36,25 @@ const render = (accounts: PaceAccountInput[], prefs: Partial<PaceTimelinePrefs> 
   );
 
 describe('QuotaPaceTimeline rendering', () => {
-  test('shows verdicts, the pool and banked expiries on the 7d view', () => {
+  test('shows both windows per account with verdicts and the pool', () => {
     const markup = render([claude('alice', 70, 10), claude('bob', 20, 100)]);
-    expect(markup).toContain('Quota timeline');
+    expect(markup).toContain('Quota pace');
     expect(markup).toContain('alice@example.com');
+    expect(markup).toContain('>5h<');
+    expect(markup).toContain('>7d<');
     expect(markup).toContain('Slow down');
     expect(markup).toContain('Speed up');
     expect(markup).toContain('30% left');
+    expect(markup).toContain('Limited · in 1 hr.');
     expect(markup).toContain('Claude pool');
     expect(markup).toContain('1 of 2 available now');
-    expect(markup).toContain('Use soon · 2');
-    expect(markup).toContain('aria-pressed="true">7 days</button>');
+    expect(markup).not.toContain('aria-pressed');
   });
 
-  test('the 5h view shows 5-hour windows, limits and no banked marks', () => {
-    const markup = render([claude('alice', 70, 10), claude('bob', 20, 100)], { view: '5h' });
-    expect(markup).toContain('aria-pressed="true">5 hours</button>');
-    expect(markup).toContain('Limited · in 1 hr.');
-    expect(markup).not.toContain('Use soon');
+  test('marks each row with its provider icon and names it for screen readers', () => {
+    const markup = render([claude('alice', 70, 10)]);
+    expect(markup).toContain('title="Claude"');
+    expect(markup).toContain('aria-label="Show alice@example.com&#x27;s Claude card"');
   });
 
   test('a lone account gets no pool; hidden accounts drop off', () => {

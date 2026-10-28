@@ -20,10 +20,10 @@ import {
 import { selectResetGrant } from './selectResetGrant';
 import { readResetGrantsForCard, scheduleResetGrantRead } from './resetGrantReads';
 
-/** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
-/** Stable empty list: the grants feed effects that must not re-run every render. */
+/** Stable empty list, so callers see the same reference until grants load. */
 const NO_GRANTS: AnthropicResetGrant[] = [];
 
+/** Card-owned reads; the session-scoped journal owns spending and ambiguous retries. */
 export function useClaudeResetGrants(
   file: AuthFileItem,
   enabled: boolean,

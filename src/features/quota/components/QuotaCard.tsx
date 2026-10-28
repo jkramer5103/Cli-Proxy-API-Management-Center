@@ -4,13 +4,11 @@
  * refreshing or after a failed read.
  */
 
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
 import type { ClaudeQuotaState } from '@/types';
 import { formatInstantShort, formatRelativeInstant, resolveQuotaErrorMessage } from '@/utils/quota';
-import { useQuotaStore } from '@/stores';
 import { getQuotaCacheKey, getQuotaCardTitle } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
@@ -24,7 +22,6 @@ import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { useClaudeResetGrants } from '../providers/claude/ClaudeResetGrants';
 import { ClaudeResetGrantDetails } from '../providers/claude/ClaudeResetGrantDetails';
 import { hasClaudeUsageData } from '../providers/claude/data';
-import { useClaudeGrantRegistry } from '../claudeGrantRegistry';
 import type { QuotaHealth } from '../quotaHealth';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
@@ -64,13 +61,7 @@ export function QuotaCard(props: QuotaCardProps) {
     quota,
     onRefresh
   );
-  // The pace timeline marks banked-reset expiries from what the card already read.
   const cacheKey = getQuotaCacheKey(file);
-  const publishGrants = useClaudeGrantRegistry((state) => state.publish);
-  useEffect(() => {
-    if (entry.type !== 'claude') return;
-    publishGrants(useQuotaStore.getState().cacheGeneration, cacheKey, claudeReset.grants);
-  }, [cacheKey, claudeReset.grants, entry.type, publishGrants]);
   const providerType = entry.type;
   const iconSrc = getAuthFileIcon(providerType);
   const typeLabel = getTypeLabel(t, providerType);

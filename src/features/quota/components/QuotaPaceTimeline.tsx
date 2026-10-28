@@ -1,16 +1,15 @@
 /**
- * Quota pace timeline: one row per account, a pace bar per window (quota left
- * against time left) and an axis of upcoming resets and banked-reset expiries.
+ * Quota pace overview: one row per account with a pace bar for its 5-hour and
+ * its weekly window (quota left against time left), pools per provider on top.
  *
  * All maths lives in quotaPaceModel.ts; this file is layout and preferences.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown, IconSettings } from '@/components/ui/icons';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { formatInstantShort, formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
+import { formatInstantShort, formatRelativeInstant } from '@/utils/quota';
 import {
   getAuthFileIcon,
   getTypeLabel,
@@ -19,47 +18,18 @@ import {
 } from '@/features/authFiles/constants';
 import type { QuotaProviderType } from '../providers/types';
 import {
-  axisPercent,
-  axisTicks,
   buildPaceGroups,
   PACE_VIEWS,
-  type BankedMark,
   type PaceAccount,
   type PaceAccountInput,
   type PacePool,
+  type PacePoolWindow,
   type PaceReading,
   type PaceVerdict,
   type PaceView,
 } from '../quotaPaceModel';
 import type { PaceTimelinePrefs } from '../paceTimelinePrefs';
 import styles from './QuotaPaceTimeline.module.scss';
-
-/** Pixels kept clear of tick label centres next to the "Now" label. */
-const NOW_LABEL_CLEARANCE_PX = 50;
-/** Fallback before the axis has been measured (static render). */
-const NOW_LABEL_CLEARANCE_PCT = 8;
-
-/** Tracks an element's width so axis labels can avoid pixel collisions. */
-function useElementWidth<T extends HTMLElement>() {
-  // A callback ref, because the axis mounts and unmounts with the collapse toggle.
-  const [node, setNode] = useState<T | null>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [node]);
-  return [setNode, width] as const;
-}
-
-const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
-
-const pad = (value: number) => String(value).padStart(2, '0');
-const formatClock = (ms: number) => {
-  const d = new Date(ms);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 
 export interface QuotaPaceTimelineProps {
   accounts: readonly PaceAccountInput[];
@@ -82,25 +52,17 @@ export function QuotaPaceTimeline({
   locale,
 }: QuotaPaceTimelineProps) {
   const { t } = useTranslation();
-  const { view, collapsed } = prefs;
+  const { collapsed } = prefs;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const hidden = useMemo(() => new Set(prefs.hidden), [prefs.hidden]);
   const excluded = useMemo(() => new Set(prefs.excluded), [prefs.excluded]);
   const groups = useMemo(
-    () => buildPaceGroups(accounts, view, { hidden, excluded }, now, providerOrder),
-    [accounts, view, hidden, excluded, now, providerOrder]
+    () => buildPaceGroups(accounts, { hidden, excluded }, now, providerOrder),
+    [accounts, hidden, excluded, now, providerOrder]
   );
-  const ticks = useMemo(() => axisTicks(view, now), [view, now]);
-  const [axisRef, axisWidth] = useElementWidth<HTMLDivElement>();
 
   if (accounts.length === 0) return null;
-
-  const tickLabel = (at: number) => {
-    if (view === '5h') return formatClock(at);
-    const day = new Date(at).getDay();
-    return t(`quota_management.weekday_${WEEKDAY_KEYS[day]}`);
-  };
 
   return (
     <section className={styles.timeline} aria-label={t('quota_management.pace_title')}>
@@ -118,18 +80,6 @@ export function QuotaPaceTimeline({
         {!collapsed && <span className={styles.legend}>{t('quota_management.pace_legend')}</span>}
 
         <div className={styles.controls}>
-          <div className={styles.modes} role="group" aria-label={t('quota_management.pace_view')}>
-            {PACE_VIEWS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={view === value}
-                onClick={() => onPrefsChange({ ...prefs, view: value, collapsed: false })}
-              >
-                {t(`quota_management.pace_view_${value}`)}
-              </button>
-            ))}
-          </div>
           <PaceSettings
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
@@ -143,49 +93,17 @@ export function QuotaPaceTimeline({
 
       {!collapsed && (
         <div className={styles.chart} id="quota-pace-chart">
-          <div className={`${styles.row} ${styles.axisRow}`} aria-hidden="true">
-            <span />
-            <span />
-            <div className={styles.axis} ref={axisRef}>
-              <span className={styles.nowLabel}>{t('quota_management.pace_now')}</span>
-              {ticks.map((at) => {
-                const left = axisPercent(at, view, now) ?? 0;
-                // A label right next to "Now" would collide with it; the gridline still shows.
-                const tooClose =
-                  axisWidth > 0
-                    ? (left / 100) * axisWidth < NOW_LABEL_CLEARANCE_PX
-                    : left < NOW_LABEL_CLEARANCE_PCT;
-                return tooClose ? null : (
-                  <span key={at} className={styles.tickLabel} style={{ left: `${left}%` }}>
-                    {tickLabel(at)}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-
           {groups.length === 0 ? (
             <div className={styles.empty}>{t('quota_management.pace_all_hidden')}</div>
           ) : (
             groups.map((group) => (
               <div key={group.provider} className={styles.group}>
-                {group.pool && (
-                  <PoolRow
-                    provider={group.provider}
-                    pool={group.pool}
-                    view={view}
-                    now={now}
-                    ticks={ticks}
-                    locale={locale}
-                  />
-                )}
+                {group.pool && <PoolRow provider={group.provider} pool={group.pool} />}
                 {group.accounts.map((account) => (
                   <AccountRow
                     key={account.key}
                     account={account}
-                    view={view}
                     now={now}
-                    ticks={ticks}
                     locale={locale}
                     onSelect={onSelect}
                   />
@@ -201,99 +119,101 @@ export function QuotaPaceTimeline({
 
 /* ------------------------------------------------------------------ rows */
 
-interface RowCommon {
-  view: PaceView;
-  now: number;
-  ticks: number[];
-  locale?: string;
-}
-
 function AccountRow({
   account,
-  view,
   now,
-  ticks,
   locale,
   onSelect,
-}: RowCommon & { account: PaceAccount; onSelect: (key: string) => void }) {
+}: {
+  account: PaceAccount;
+  now: number;
+  locale?: string;
+  onSelect: (key: string) => void;
+}) {
   const { t } = useTranslation();
-  const { reading } = account;
-  const color = providerColor(account.provider);
-  const tooltip = reading ? readingTooltip(t, reading) : undefined;
+  const providerLabel = getTypeLabel(t, account.provider);
 
   return (
     <button
       type="button"
       className={styles.row}
       onClick={() => onSelect(account.key)}
-      title={tooltip}
-      aria-label={t('quota_management.pace_jump', { name: account.title })}
+      aria-label={t('quota_management.pace_jump', {
+        name: account.title,
+        provider: providerLabel,
+      })}
     >
       <span className={styles.name}>
-        <span className={styles.dot} style={{ background: color }} aria-hidden="true" />
+        <ProviderIcon provider={account.provider} label={providerLabel} />
         <span className={styles.nameText}>{account.title}</span>
       </span>
-      <span className={styles.pace}>
-        {reading ? (
-          <>
-            <PaceBar
-              remaining={reading.remaining}
-              timeLeft={reading.timeLeft}
-              tone={toneOf(reading)}
+      {account.status === 'ready' ? (
+        <span className={styles.windows}>
+          {PACE_VIEWS.map((view) => (
+            <AccountWindow
+              key={view}
+              view={view}
+              reading={account.readings[view]}
+              now={now}
+              locale={locale}
             />
-            <span className={styles.paceText}>
-              <ReadingLabel reading={reading} now={now} locale={locale} />
-              {reading.resetAtMs !== null && reading.state !== 'limited' && (
-                <span className={styles.resetsIn}>
-                  {t('quota_management.pace_resets', {
-                    relative: formatRelativeInstant(reading.resetAtMs, now, locale, 'short'),
-                  })}
-                </span>
-              )}
-            </span>
-          </>
-        ) : (
-          <span className={styles.muted}>{t(statusKey(account.status, view))}</span>
-        )}
-      </span>
-      <span className={styles.axis} aria-hidden="true">
-        <Gridlines ticks={ticks} view={view} now={now} />
-        {reading && <WindowTrack reading={reading} view={view} now={now} />}
-        {account.banked.map((mark) => (
-          <BankedDiamond key={mark.atMs} mark={mark} view={view} now={now} />
-        ))}
-      </span>
+          ))}
+        </span>
+      ) : (
+        <span className={`${styles.windows} ${styles.muted}`}>{t(statusKey(account.status))}</span>
+      )}
     </button>
   );
 }
 
-function PoolRow({
-  provider,
-  pool,
+function AccountWindow({
   view,
+  reading,
   now,
-  ticks,
-}: RowCommon & { provider: QuotaProviderType; pool: PacePool }) {
+  locale,
+}: {
+  view: PaceView;
+  reading: PaceReading | null;
+  now: number;
+  locale?: string;
+}) {
   const { t } = useTranslation();
-  const icon = getAuthFileIcon(provider);
+  if (!reading) {
+    return (
+      <span className={styles.window}>
+        <WindowLabel view={view} />
+        <span className={styles.muted}>{t(`quota_management.pace_no_window_${view}`)}</span>
+      </span>
+    );
+  }
+  return (
+    <span className={styles.window} title={readingTooltip(t, view, reading)}>
+      <span className={styles.barLine}>
+        <WindowLabel view={view} />
+        <PaceBar remaining={reading.remaining} timeLeft={reading.timeLeft} tone={toneOf(reading)} />
+      </span>
+      <span className={styles.paceText}>
+        <ReadingLabel reading={reading} now={now} locale={locale} />
+        {reading.resetAtMs !== null && reading.state !== 'limited' && (
+          <span className={styles.resetsIn}>
+            {t('quota_management.pace_resets', {
+              relative: formatRelativeInstant(reading.resetAtMs, now, locale, 'short'),
+            })}
+          </span>
+        )}
+      </span>
+    </span>
+  );
+}
+
+function PoolRow({ provider, pool }: { provider: QuotaProviderType; pool: PacePool }) {
+  const { t } = useTranslation();
   const label = getTypeLabel(t, provider);
-  const tone: Tone = pool.verdict ?? 'plain';
 
   return (
     <div className={`${styles.row} ${styles.poolRow}`}>
       <span className={styles.name}>
-        {icon && (
-          <span
-            className={styles.poolIcon}
-            style={
-              isThemeSurfaceIconProvider(provider)
-                ? { background: THEME_SURFACE_ICON_BACKGROUND }
-                : undefined
-            }
-          >
-            <img src={icon} alt="" />
-          </span>
-        )}
+        <ProviderIcon provider={provider} label={label} />
         <span className={styles.poolName}>
           <span className={styles.nameText}>
             {t('quota_management.pace_pool', { provider: label })}
@@ -306,40 +226,73 @@ function PoolRow({
           </span>
         </span>
       </span>
-      <span className={styles.pace}>
-        {pool.remaining === null ? (
-          <span className={styles.muted}>{t('quota_management.pace_loading')}</span>
-        ) : (
-          <>
-            <PaceBar remaining={pool.remaining} timeLeft={pool.timeLeft} tone={tone} />
-            <span className={styles.paceText}>
-              {pool.verdict && <VerdictChip verdict={pool.verdict} />}
-              <span className={styles.percent}>
-                {t('quota_management.percent_left', { percent: Math.round(pool.remaining) })}
-              </span>
-            </span>
-          </>
-        )}
-      </span>
-      <span className={styles.axis} aria-hidden="true">
-        <Gridlines ticks={ticks} view={view} now={now} />
-        {pool.resets.map((at, index) => {
-          const left = axisPercent(at, view, now);
-          return left === null ? null : (
-            <span
-              key={`${at}-${index}`}
-              className={styles.poolReset}
-              style={{ left: `${left}%` }}
-              title={formatInstantShort(at)}
-            />
-          );
-        })}
+      <span className={styles.windows}>
+        {PACE_VIEWS.map((view) => (
+          <PoolWindow key={view} view={view} window={pool.windows[view]} />
+        ))}
       </span>
     </div>
   );
 }
 
+function PoolWindow({ view, window }: { view: PaceView; window: PacePoolWindow | null }) {
+  const { t } = useTranslation();
+  if (!window) {
+    return (
+      <span className={styles.window}>
+        <WindowLabel view={view} />
+        <span className={styles.muted}>{t(`quota_management.pace_no_window_${view}`)}</span>
+      </span>
+    );
+  }
+  return (
+    <span className={styles.window}>
+      <span className={styles.barLine}>
+        <WindowLabel view={view} />
+        <PaceBar
+          remaining={window.remaining}
+          timeLeft={window.timeLeft}
+          tone={window.verdict ?? 'plain'}
+        />
+      </span>
+      <span className={styles.paceText}>
+        {window.verdict && <VerdictChip verdict={window.verdict} />}
+        <span className={styles.percent}>
+          {t('quota_management.percent_left', { percent: Math.round(window.remaining) })}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 /* ----------------------------------------------------------- primitives */
+
+function ProviderIcon({ provider, label }: { provider: QuotaProviderType; label: string }) {
+  const icon = getAuthFileIcon(provider);
+  if (!icon) return null;
+  return (
+    <span
+      className={styles.providerIcon}
+      title={label}
+      style={
+        isThemeSurfaceIconProvider(provider)
+          ? { background: THEME_SURFACE_ICON_BACKGROUND }
+          : undefined
+      }
+    >
+      <img src={icon} alt="" />
+    </span>
+  );
+}
+
+function WindowLabel({ view }: { view: PaceView }) {
+  const { t } = useTranslation();
+  return (
+    <span className={styles.windowLabel} title={t(`quota_management.pace_window_${view}_full`)}>
+      {t(`quota_management.pace_window_${view}`)}
+    </span>
+  );
+}
 
 type Tone = PaceVerdict | 'limited' | 'fresh' | 'plain';
 
@@ -417,72 +370,6 @@ function ReadingLabel({
     default:
       return percent;
   }
-}
-
-function Gridlines({ ticks, view, now }: { ticks: number[]; view: PaceView; now: number }) {
-  return (
-    <>
-      {ticks.map((at) => (
-        <span
-          key={at}
-          className={styles.gridline}
-          style={{ left: `${axisPercent(at, view, now)}%` }}
-        />
-      ))}
-    </>
-  );
-}
-
-/** The rest of the current window, from now to its reset. */
-function WindowTrack({
-  reading,
-  view,
-  now,
-}: {
-  reading: PaceReading;
-  view: PaceView;
-  now: number;
-}) {
-  if (reading.resetAtMs === null) return null;
-  const left = axisPercent(reading.resetAtMs, view, now);
-  const style = { '--reset-at': `${left ?? 100}%` } as CSSProperties;
-  return (
-    <>
-      <span className={styles.track} data-tone={toneOf(reading)} style={style} />
-      {left !== null && (
-        <span className={styles.resetMark} style={{ left: `${left}%` }}>
-          <span className={styles.resetLabel} data-flip={left > 82 ? '1' : undefined}>
-            {view === '5h' ? formatClock(reading.resetAtMs) : formatInstantShort(reading.resetAtMs)}
-          </span>
-        </span>
-      )}
-    </>
-  );
-}
-
-function BankedDiamond({ mark, view, now }: { mark: BankedMark; view: PaceView; now: number }) {
-  const { t } = useTranslation();
-  const left = axisPercent(mark.atMs, view, now);
-  const beyond = left === null;
-  return (
-    <span
-      className={styles.banked}
-      data-soon={mark.soon ? '1' : undefined}
-      data-beyond={beyond ? '1' : undefined}
-      style={{ left: `${left ?? 100}%` }}
-      title={t('quota_management.pace_banked', {
-        count: mark.count,
-        at: formatInstantShort(mark.atMs),
-      })}
-    >
-      <span className={styles.bankedGlyph} />
-      <span className={styles.bankedLabel}>
-        {mark.soon
-          ? t('quota_management.pace_banked_soon', { count: mark.count })
-          : `×${mark.count}`}
-      </span>
-    </span>
-  );
 }
 
 /* --------------------------------------------------------------- settings */
@@ -596,22 +483,21 @@ function PaceSettings({
 
 /* ---------------------------------------------------------------- helpers */
 
-function providerColor(provider: QuotaProviderType): string {
-  const set = TYPE_COLORS[provider] || TYPE_COLORS.unknown;
-  return (set.dark ?? set.light).text;
-}
-
-function statusKey(status: PaceAccount['status'], view: PaceView): string {
+function statusKey(status: PaceAccount['status']): string {
   if (status === 'error') return 'quota_management.health_error';
-  if (status === 'none') return `quota_management.pace_no_window_${view}`;
+  if (status === 'none') return 'quota_management.pace_no_windows';
   return 'quota_management.pace_loading';
 }
 
 function readingTooltip(
   t: (key: string, options?: Record<string, unknown>) => string,
+  view: PaceView,
   reading: PaceReading
-): string | undefined {
-  const parts = [t('quota_management.percent_left', { percent: Math.round(reading.remaining) })];
+): string {
+  const parts = [
+    t(`quota_management.pace_window_${view}_full`),
+    t('quota_management.percent_left', { percent: Math.round(reading.remaining) }),
+  ];
   if (reading.timeLeft !== null) {
     parts.push(t('quota_management.pace_time_left', { percent: Math.round(reading.timeLeft) }));
   }

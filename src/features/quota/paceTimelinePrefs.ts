@@ -4,10 +4,7 @@
  * Keys are quota cache keys (the auth filename), never account identifiers.
  */
 
-import { PACE_VIEWS, type PaceView } from './quotaPaceModel';
-
 export interface PaceTimelinePrefs {
-  view: PaceView;
   collapsed: boolean;
   excluded: string[];
   hidden: string[];
@@ -16,7 +13,6 @@ export interface PaceTimelinePrefs {
 export const PACE_PREFS_KEY = 'quotaPage.paceTimeline';
 
 export const DEFAULT_PACE_PREFS: PaceTimelinePrefs = {
-  view: '7d',
   collapsed: false,
   excluded: [],
   hidden: [],
@@ -32,9 +28,6 @@ export function parsePacePrefs(raw: string | null): PaceTimelinePrefs {
     if (!parsed || typeof parsed !== 'object') return DEFAULT_PACE_PREFS;
     const record = parsed as Record<string, unknown>;
     return {
-      view: PACE_VIEWS.includes(record.view as PaceView)
-        ? (record.view as PaceView)
-        : DEFAULT_PACE_PREFS.view,
       collapsed: record.collapsed === true,
       excluded: stringList(record.excluded),
       hidden: stringList(record.hidden),

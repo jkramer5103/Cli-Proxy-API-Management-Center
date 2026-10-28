@@ -1,7 +1,5 @@
-// Shared columns so every row's bar and axis line up for comparison.
-$name-col: minmax(150px, 220px);
-$pace-col: 260px;
-$row-columns: $name-col $pace-col minmax(0, 1fr);
+// Shared columns so every row's bars line up for comparison.
+$row-columns: minmax(160px, 260px) minmax(0, 1fr);
 
 .timeline {
   display: flex;
@@ -60,40 +58,6 @@ $row-columns: $name-col $pace-col minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   margin-left: auto;
-}
-
-.modes {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-
-  button {
-    padding: 3px 12px;
-    font: inherit;
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    cursor: pointer;
-    transition:
-      color var(--dur-hover) var(--ease-out-strong),
-      background var(--dur-hover) var(--ease-out-strong);
-
-    &:hover {
-      color: var(--text-primary);
-    }
-
-    &[aria-pressed='true'] {
-      background: var(--floating-surface, var(--bg-primary));
-      border-color: var(--border-hover);
-      color: var(--text-primary);
-    }
-  }
 }
 
 /* ---------- settings popover ---------- */
@@ -232,11 +196,6 @@ button.row {
   }
 }
 
-.axisRow {
-  min-height: 30px;
-  border-bottom: 1px solid var(--border-color);
-}
-
 .poolRow {
   background: rgb(255 255 255 / 0.02);
 }
@@ -249,13 +208,6 @@ button.row {
   padding: 8px 12px 8px 14px;
 }
 
-.dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
 .nameText {
   min-width: 0;
   overflow: hidden;
@@ -266,7 +218,7 @@ button.row {
   color: var(--text-primary);
 }
 
-.poolIcon {
+.providerIcon {
   flex: none;
   display: grid;
   place-items: center;
@@ -292,20 +244,46 @@ button.row {
   color: var(--text-tertiary);
 }
 
-.pace {
+.windows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 28px;
+  min-width: 0;
+  padding: 10px 16px 10px 0;
+}
+
+.window {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  padding: 8px 14px 8px 0;
 }
 
+.barLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+$window-label-width: 20px;
+
+.windowLabel {
+  flex: none;
+  width: $window-label-width;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+// Text sits under the bar, not under the window label.
 .paceText {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 8px;
   min-width: 0;
+  padding-left: $window-label-width + 8px;
   font-size: 12px;
 }
 
@@ -316,7 +294,6 @@ button.row {
 }
 
 .resetsIn {
-  display: none;
   white-space: nowrap;
   color: var(--text-quaternary);
 }
@@ -345,6 +322,8 @@ button.row {
 .bar {
   position: relative;
   display: block;
+  flex: 1;
+  min-width: 0;
   height: 6px;
   border-radius: 999px;
   background: var(--bg-tertiary);
@@ -376,134 +355,7 @@ button.row {
   white-space: nowrap;
 }
 
-/* ---------- axis ---------- */
-
-.axis {
-  position: relative;
-  align-self: stretch;
-  min-height: 30px;
-  margin-right: 18px;
-  border-left: 1px dashed color-mix(in srgb, var(--text-primary) 35%, transparent);
-}
-
-.axisRow .axis {
-  border-left-style: solid;
-}
-
-.nowLabel,
-.tickLabel {
-  position: absolute;
-  bottom: 7px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-quaternary);
-  white-space: nowrap;
-}
-
-.nowLabel {
-  left: 6px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.tickLabel {
-  transform: translateX(-50%);
-}
-
-.gridline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: color-mix(in srgb, var(--border-color) 70%, transparent);
-}
-
-// From now to the reset: how long the current window still runs.
-.track {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: var(--reset-at);
-  height: 6px;
-  margin-top: -3px;
-  border-radius: 0 999px 999px 0;
-  background: color-mix(in srgb, var(--tone) 32%, transparent);
-}
-
-.resetMark {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  border-radius: 50%;
-  background: var(--bg-primary);
-  border: 2px solid var(--text-secondary);
-}
-
-.resetLabel {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  transform: translateY(-50%);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-
-  // Flipped labels sit over the track, so they get a backing to stay legible.
-  &[data-flip='1'] {
-    left: auto;
-    right: 12px;
-    padding: 0 4px;
-    border-radius: 4px;
-    background: var(--bg-primary);
-  }
-}
-
-.poolReset {
-  position: absolute;
-  top: 50%;
-  width: 2px;
-  height: 14px;
-  margin: -7px 0 0 -1px;
-  border-radius: 1px;
-  background: var(--text-tertiary);
-}
-
-.banked {
-  position: absolute;
-  top: 3px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  transform: translateX(-5px);
-  color: #a78bfa;
-
-  &[data-soon='1'] {
-    color: var(--quota-medium-color);
-  }
-
-  &[data-beyond='1'] {
-    opacity: 0.55;
-  }
-}
-
-.bankedGlyph {
-  width: 8px;
-  height: 8px;
-  transform: rotate(45deg);
-  border-radius: 1.5px;
-  background: currentColor;
-}
-
-.bankedLabel {
-  font-size: 10.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* ---------- narrow screens: drop the axis, keep pace and countdown ---------- */
+/* ---------- narrow screens: name on top, the two windows side by side below ---------- */
 
 @media (max-width: $breakpoint-tablet) {
   .legend {
@@ -511,16 +363,16 @@ button.row {
   }
 
   .row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .axis,
-  .axisRow {
-    display: none;
+  .name {
+    padding-bottom: 0;
   }
 
-  .resetsIn {
-    display: inline;
+  .windows {
+    gap: 10px 18px;
+    padding: 8px 14px 12px;
   }
 }
 

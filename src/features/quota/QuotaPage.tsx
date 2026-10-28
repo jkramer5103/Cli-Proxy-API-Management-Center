@@ -50,7 +50,6 @@ import { summarizeQuotaHealth } from './quotaHealth';
 import { useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
-import { selectClaudeGrants, useClaudeGrantRegistry } from './claudeGrantRegistry';
 import { readPacePrefs, writePacePrefs, type PaceTimelinePrefs } from './paceTimelinePrefs';
 import type { PaceAccountInput } from './quotaPaceModel';
 import styles from './QuotaPage.module.scss';
@@ -249,9 +248,6 @@ export function QuotaPage() {
     () => filterEntriesByTab(entries, tab).filter((entry) => !entry.file.disabled),
     [entries, tab]
   );
-  const claudeGrants = useClaudeGrantRegistry((state) =>
-    selectClaudeGrants(state, sessionGeneration)
-  );
   const paceAccounts = useMemo<PaceAccountInput[]>(
     () =>
       paceEntries.map((entry) => {
@@ -262,11 +258,10 @@ export function QuotaPage() {
           title: getQuotaCardTitle(entry.file),
           provider: entry.type,
           quota: getQuota(entry),
-          claudeGrants: claudeGrants[key],
           available: status === 'ok' || status === 'low',
         };
       }),
-    [paceEntries, getQuota, healthFor, claudeGrants]
+    [paceEntries, getQuota, healthFor]
   );
 
   const [pacePrefs, setPacePrefs] = useState<PaceTimelinePrefs>(readPacePrefs);
