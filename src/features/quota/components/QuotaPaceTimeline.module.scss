@@ -196,8 +196,15 @@ button.row {
   }
 }
 
+// Pools average several accounts: tinted in the provider's color with an accent edge.
 .poolRow {
-  background: rgb(255 255 255 / 0.02);
+  --pool-color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--pool-color) 11%, transparent);
+  box-shadow: inset 3px 0 0 var(--pool-color);
+
+  .poolMeta {
+    color: color-mix(in srgb, var(--pool-color) 70%, var(--text-tertiary));
+  }
 }
 
 .name {

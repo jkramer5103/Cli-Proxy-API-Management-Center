@@ -6,10 +6,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconChevronDown, IconSettings } from '@/components/ui/icons';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { formatInstantShort, formatRelativeInstant } from '@/utils/quota';
+import { formatInstantShort, formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
 import {
   getAuthFileIcon,
   getTypeLabel,
@@ -211,7 +212,10 @@ function PoolRow({ provider, pool }: { provider: QuotaProviderType; pool: PacePo
   const label = getTypeLabel(t, provider);
 
   return (
-    <div className={`${styles.row} ${styles.poolRow}`}>
+    <div
+      className={`${styles.row} ${styles.poolRow}`}
+      style={{ '--pool-color': providerColor(provider) } as CSSProperties}
+    >
       <span className={styles.name}>
         <ProviderIcon provider={provider} label={label} />
         <span className={styles.poolName}>
@@ -482,6 +486,11 @@ function PaceSettings({
 }
 
 /* ---------------------------------------------------------------- helpers */
+
+function providerColor(provider: QuotaProviderType): string {
+  const set = TYPE_COLORS[provider] || TYPE_COLORS.unknown;
+  return (set.dark ?? set.light).text;
+}
 
 function statusKey(status: PaceAccount['status']): string {
   if (status === 'error') return 'quota_management.health_error';
