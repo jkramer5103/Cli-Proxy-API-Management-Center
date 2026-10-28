@@ -34,8 +34,24 @@ import {
 import type { PaceTimelinePrefs } from '../paceTimelinePrefs';
 import styles from './QuotaPaceTimeline.module.scss';
 
-/** Axis percent kept clear of tick labels next to the "Now" label. */
-const NOW_LABEL_CLEARANCE = 8;
+/** Pixels kept clear of tick label centres next to the "Now" label. */
+const NOW_LABEL_CLEARANCE_PX = 50;
+/** Fallback before the axis has been measured (static render). */
+const NOW_LABEL_CLEARANCE_PCT = 8;
+
+/** Tracks an element's width so axis labels can avoid pixel collisions. */
+function useElementWidth<T extends HTMLElement>() {
+  // A callback ref, because the axis mounts and unmounts with the collapse toggle.
+  const [node, setNode] = useState<T | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [setNode, width] as const;
+}
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
@@ -76,6 +92,7 @@ export function QuotaPaceTimeline({
     [accounts, view, hidden, excluded, now, providerOrder]
   );
   const ticks = useMemo(() => axisTicks(view, now), [view, now]);
+  const [axisRef, axisWidth] = useElementWidth<HTMLDivElement>();
 
   if (accounts.length === 0) return null;
 
@@ -129,12 +146,16 @@ export function QuotaPaceTimeline({
           <div className={`${styles.row} ${styles.axisRow}`} aria-hidden="true">
             <span />
             <span />
-            <div className={styles.axis}>
+            <div className={styles.axis} ref={axisRef}>
               <span className={styles.nowLabel}>{t('quota_management.pace_now')}</span>
               {ticks.map((at) => {
                 const left = axisPercent(at, view, now) ?? 0;
                 // A label right next to "Now" would collide with it; the gridline still shows.
-                return left < NOW_LABEL_CLEARANCE ? null : (
+                const tooClose =
+                  axisWidth > 0
+                    ? (left / 100) * axisWidth < NOW_LABEL_CLEARANCE_PX
+                    : left < NOW_LABEL_CLEARANCE_PCT;
+                return tooClose ? null : (
                   <span key={at} className={styles.tickLabel} style={{ left: `${left}%` }}>
                     {tickLabel(at)}
                   </span>
