@@ -56,6 +56,8 @@ describe('pace readings', () => {
     const reading = readPace('claude', claude([win('five-hour', 100, HOUR_MS, 5)]), '5h', NOW);
     expect(reading).toMatchObject({ state: 'limited', remaining: 0, verdict: null });
     expect(reading?.resetAtMs).toBe(NOW + HOUR_MS);
+    expect(reading?.timeLeft).toBe(20);
+    expect(reading?.gap).toBe(-20);
   });
 
   test('an unstarted or already-reset window is fresh', () => {
@@ -169,6 +171,59 @@ describe('groups and pools', () => {
     expect(pool?.windows['7d']?.gap).toBeCloseTo(10);
     expect(pool?.windows['7d']?.verdict).toBe('speed');
     expect(pool?.windows['5h']).toBeNull();
+  });
+
+  test('exhausted members count in both pool quota and time remaining', () => {
+    const inputs = [
+      { ...account('active', 0, DAY_MS), quota: claude([win('five-hour', 67, HOUR_MS, 5)]) },
+      {
+        ...account('limited', 0, DAY_MS, 'claude', false),
+        quota: claude([win('five-hour', 100, HOUR_MS, 5)]),
+      },
+    ];
+    const pool = buildPaceGroups(inputs, prefs, NOW, ['claude'])[0]?.pool;
+    expect(pool?.available).toBe(1);
+    expect(pool?.windows['5h']).toMatchObject({
+      remaining: 16.5,
+      timeLeft: 20,
+      gap: -3.5,
+      verdict: 'on',
+    });
+  });
+
+  test('a fully exhausted pool retains its clock and says slow down', () => {
+    const pool = buildPaceGroups(
+      [
+        account('a', 100, 3.5 * DAY_MS, 'claude', false),
+        account('b', 100, DAY_MS, 'claude', false),
+      ],
+      prefs,
+      NOW,
+      ['claude']
+    )[0]?.pool;
+    expect(pool?.windows['7d']?.remaining).toBe(0);
+    expect(pool?.windows['7d']?.timeLeft).toBeCloseTo((50 + 100 / 7) / 2);
+    expect(pool?.windows['7d']?.verdict).toBe('slow');
+  });
+
+  test('unknown clocks suppress pool ticks and verdicts without dropping quota', () => {
+    for (const window of [
+      win('seven-day', 0, null, WEEK),
+      { ...win('seven-day', 100, DAY_MS, WEEK), periodHours: null },
+      { ...win('seven-day', 60, DAY_MS, WEEK), periodHours: null },
+    ]) {
+      const inputs = [
+        account('known', 10, DAY_MS),
+        { ...account('unknown', 0, DAY_MS), quota: claude([window]) },
+      ];
+      const pool = buildPaceGroups(inputs, prefs, NOW, ['claude'])[0]?.pool;
+      expect(pool?.windows['7d']).toMatchObject({
+        remaining: (90 + 100 - window.usedPercent) / 2,
+        timeLeft: null,
+        gap: null,
+        verdict: null,
+      });
+    }
   });
 
   test('excluded accounts stay as rows but leave the pool; hidden ones leave both', () => {

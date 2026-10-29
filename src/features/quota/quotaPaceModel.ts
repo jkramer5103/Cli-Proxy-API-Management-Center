@@ -206,7 +206,22 @@ export function readWindow(window: Candidate, nowMs: number): PaceReading {
   if (resetAtMs !== null && resetAtMs <= nowMs) {
     return { ...base, state: 'fresh', remaining: 100, resetAtMs: null };
   }
-  if (window.remaining <= 0) return { ...base, state: 'limited', remaining: 0, resetAtMs };
+  if (window.remaining <= 0) {
+    const periodMs = window.periodHours === null ? null : window.periodHours * HOUR_MS;
+    const timeLeft =
+      resetAtMs !== null && periodMs !== null
+        ? clamp(((resetAtMs - nowMs) / periodMs) * 100)
+        : null;
+    return {
+      ...base,
+      state: 'limited',
+      remaining: 0,
+      resetAtMs,
+      startMs: resetAtMs !== null && periodMs !== null ? resetAtMs - periodMs : null,
+      timeLeft,
+      gap: timeLeft === null ? null : -timeLeft,
+    };
+  }
   if (resetAtMs === null) {
     return {
       ...base,
@@ -271,9 +286,9 @@ export interface PaceAccount {
 export interface PacePoolWindow {
   /** Mean quota left across members with a reading. */
   remaining: number;
-  /** Mean time left across pacing members. */
+  /** Mean time left across the same members; null if any clock is unknown. */
   timeLeft: number | null;
-  /** Mean of the pacing members' gaps. */
+  /** Mean quota left minus mean time left, using the same members. */
   gap: number | null;
   verdict: PaceVerdict | null;
 }
@@ -311,11 +326,14 @@ function statusOf(quota: unknown, readings: PaceReadings): PaceAccount['status']
 function poolWindow(readings: PaceReading[]): PacePoolWindow | null {
   const remaining = mean(readings.map((reading) => reading.remaining));
   if (remaining === null) return null;
-  const pacing = readings.filter((reading) => reading.gap !== null && reading.timeLeft !== null);
-  const gap = mean(pacing.map((reading) => reading.gap as number));
+  // Never compare a subset's clock with the whole pool's remaining quota.
+  // Exhausted windows retain their clocks; unknown clocks suppress the verdict.
+  const clocks = readings.map((reading) => reading.timeLeft);
+  const timeLeft = clocks.every((clock): clock is number => clock !== null) ? mean(clocks) : null;
+  const gap = timeLeft === null ? null : remaining - timeLeft;
   return {
     remaining,
-    timeLeft: mean(pacing.map((reading) => reading.timeLeft as number)),
+    timeLeft,
     gap,
     verdict: gap === null ? null : verdictFor(gap),
   };
