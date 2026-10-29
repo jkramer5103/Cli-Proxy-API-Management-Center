@@ -89,9 +89,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         case 'request-log':
           nextConfig.requestLog = value as Config['requestLog'];
           break;
-        case 'claude-auto-apply-banked-resets':
-          nextConfig.claudeAutoApplyBankedResets = value as Config['claudeAutoApplyBankedResets'];
-          break;
         case 'logging-to-file':
           nextConfig.loggingToFile = value as Config['loggingToFile'];
           break;

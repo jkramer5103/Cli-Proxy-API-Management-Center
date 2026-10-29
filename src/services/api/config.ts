@@ -20,7 +20,4 @@ export const configApi = {
    */
   updateRequestLog: (enabled: boolean) =>
     apiClient.put('/config/observability/logs/request-log', enabled),
-
-  updateClaudeAutoApplyBankedResets: (enabled: boolean) =>
-    apiClient.captureConnection().put('/config/upstream/claude/auto-apply-banked-resets', enabled),
 };

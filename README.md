@@ -90,12 +90,6 @@ browser profile.
 
 ## Troubleshooting
 
-**Claude banked resets:** System → Claude banked resets offers server-side auto-apply during the
-final five minutes before a grant expires. It is off by default and applies to all Claude OAuth
-accounts when enabled. The backend must support `upstream.claude.auto-apply-banked-resets`; older
-backends show a disabled switch. Eligibility and cooldowns still apply, and uncertain claims pause
-automation for the affected account. The management page can be closed after enabling it.
-
 - **Cannot connect / 401:** check the API address and management key. Remote connections may require remote management to be enabled, and repeated failures can get a remote IP temporarily blocked.
 - **Logs page asks for file logging:** enable `logging-to-file` in the backend config.
 - **Provider test fails:** the test runs in the browser and depends on the provider's reachability and CORS policy. A failure doesn't always mean the backend can't reach it.
