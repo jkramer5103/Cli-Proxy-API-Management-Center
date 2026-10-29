@@ -17,7 +17,7 @@ export type PaceView = '7d' | '5h';
 export const PACE_VIEWS: readonly PaceView[] = ['5h', '7d'];
 
 /** Points of drift between quota left and time left that still read as "on pace". */
-export const PACE_TOLERANCE = 2;
+export const PACE_TOLERANCE = 8;
 
 /** Windows up to this length count as the 5h window; longer ones as the 7d window. */
 const SHORT_WINDOW_MAX_HOURS = 12;

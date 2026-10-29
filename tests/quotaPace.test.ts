@@ -38,14 +38,18 @@ describe('pace readings', () => {
     expect(reading?.startMs).toBe(NOW + 3.5 * DAY_MS - WEEK * HOUR_MS);
   });
 
-  test('says speed up when quota will reset unused, on pace within two points', () => {
+  test('says speed up when quota will reset unused, on pace within eight points', () => {
     expect(
       readPace('claude', claude([win('seven-day', 10, DAY_MS, WEEK)]), '7d', NOW)?.verdict
     ).toBe('speed');
     expect(verdictFor(2)).toBe('on');
     expect(verdictFor(-2)).toBe('on');
-    expect(verdictFor(2.1)).toBe('speed');
-    expect(verdictFor(-2.1)).toBe('slow');
+    expect(verdictFor(5)).toBe('on');
+    expect(verdictFor(-5)).toBe('on');
+    expect(verdictFor(8)).toBe('on');
+    expect(verdictFor(-8)).toBe('on');
+    expect(verdictFor(8.1)).toBe('speed');
+    expect(verdictFor(-8.1)).toBe('slow');
   });
 
   test('an exhausted window is limited until its reset, with no verdict', () => {
