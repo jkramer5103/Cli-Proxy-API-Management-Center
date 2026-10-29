@@ -1,0 +1,22 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  span {
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+}

@@ -345,6 +345,9 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
       .reduce<unknown>((value, key) => (isRecord(value) ? value[key] : undefined), raw);
   config.debug = normalizeBoolean(at('observability.logs.debug'));
   config.requestLog = normalizeBoolean(at('observability.logs.request-log'));
+  const autoApply = at('upstream.claude.auto-apply-banked-resets');
+  // An absent field means this backend does not advertise automation support.
+  config.claudeAutoApplyBankedResets = typeof autoApply === 'boolean' ? autoApply : undefined;
   config.loggingToFile = normalizeBoolean(at('observability.logs.logging-to-file'));
   const size = at('observability.logs.logs-max-total-size-mb');
   if (typeof size === 'number') config.logsMaxTotalSizeMb = size;

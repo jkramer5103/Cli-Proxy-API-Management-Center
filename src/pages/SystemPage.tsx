@@ -8,6 +8,7 @@ import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { configApi, versionApi } from '@/services/api';
 import { formatDateTimeValue } from '@/utils/format';
 import styles from './SystemPage.module.scss';
+import { ClaudeResetAutomationSettings } from '@/features/quota/providers/claude/ClaudeResetAutomationSettings';
 
 const parseVersionSegments = (version?: string | null) => {
   if (!version) return null;
@@ -148,6 +149,8 @@ export function SystemPage() {
           ))}
         </dl>
       </Card>
+
+      <ClaudeResetAutomationSettings />
 
       <Card title={t('basic_settings.request_log_title')}>
         <div className={styles.settingRow}>
